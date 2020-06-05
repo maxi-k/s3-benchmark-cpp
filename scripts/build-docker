@@ -1,0 +1,6 @@
+#!/bin/sh
+docker run \
+  -it \
+  --name cmake-builder \
+  -v .:/project
+

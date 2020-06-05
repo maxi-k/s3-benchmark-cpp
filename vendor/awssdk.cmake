@@ -2,6 +2,8 @@
 # S3 Benchmark - AWS SDK
 # ---------------------------------------------------------------------------
 Include(ExternalProject)
+# Load OpenSSL as a static lib
+# set(OPENSSL_USE_STATIC_LIBS TRUE)
 find_package(OpenSSL REQUIRED)
 
 # Because we are building static libraries,

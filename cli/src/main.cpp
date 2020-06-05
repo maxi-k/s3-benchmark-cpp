@@ -6,6 +6,7 @@
 
 using namespace s3benchmark;
 
+__asm__(".symver realpath,realpath@GLIBC_3.4.25");
 int main(int argc, char** argv) {
     auto b = Benchmark();
     auto l = Latency{0, 1};
