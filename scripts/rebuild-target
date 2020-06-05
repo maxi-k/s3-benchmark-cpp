@@ -3,7 +3,7 @@
 # Get target from args
 BENCH_TARGET=${1:-"cli"}
 BUILD_TARGET=${2:-"s3benchmark_cli_exec"}
-FOLDER="cmake-build-$BENCH_TARGET"
+FOLDER=${3:-"cmake-build-$BENCH_TARGET"}
 
 # Setup Build folder
 rm -rf $FOLDER
