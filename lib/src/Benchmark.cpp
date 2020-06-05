@@ -3,8 +3,21 @@
 //
 #include "s3benchmark/Benchmark.hpp"
 
-#include <stdio.h>
+#include <cstdio>
 
-void list_buckets() {
-  printf("Listing!\n");
+using namespace s3benchmark;
+
+Benchmark::Benchmark() {
 }
+
+void Benchmark::list_buckets(const region_t &region) {
+  printf("Listing buckets in region %s\n");
+}
+
+Aws::String Benchmark::region_name(const region_t &region) {
+    return Aws::S3::Model::BucketLocationConstraintMapper::GetNameForBucketLocationConstraint(region);
+}
+
+// object_head_t Benchmark::fetch_object_head(const std::string &object_name) {
+//     auto req = Aws::S3::Model::HeadObjectRequest()
+// }

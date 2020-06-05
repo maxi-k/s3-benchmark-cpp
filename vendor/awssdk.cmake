@@ -1,37 +1,66 @@
 # ---------------------------------------------------------------------------
 # S3 Benchmark - AWS SDK
 # ---------------------------------------------------------------------------
-# Modified from: http://fireflytech.org/2019/04/24/accessing-aws-s3-from-c-under-cmake/
-
 Include(ExternalProject)
+find_package(OpenSSL REQUIRED)
 
-# Build a minimal AWS SDK for s3
+# Because we are building static libraries,
+# all sub-dependencies of the libraries we
+# actually want have to be included
+# ORDER MATTERS for the linker
+set(AWS_REQUIRED_LIBS
+  aws-cpp-sdk-s3                 # libaws-cpp-sdk-s3.a
+  aws-cpp-sdk-core               # libaws-cpp-sdk-core.a
+  aws-cpp-sdk-kms                # libaws-cpp-sdk-kms.a
+  aws-cpp-sdk-s3-encryption      # libaws-cpp-sdk-s3-encryption.a
+  aws-checksums                  # libaws-checksums.a
+  aws-c-event-stream             # libaws-c-event-stream.a
+  aws-c-common                   # libaws-c-common.a
+  )
+
+# set(AWS_REQUIRED_LIBS
+# aws-c-common        # libaws-c-common.a
+# aws-c-event-stream  # libaws-c-event-stream.a
+# aws-checksums       # libaws-checksums.a
+# aws-cpp-sdk-core    # libaws-cpp-sdk-core.a
+# aws-cpp-sdk-s3      # libaws-cpp-sdk-s3.a
+# )
+
+set(AWS_INSTALL_DIR "vendor/awssdk/install")
+set(AWS_BUILD_BYPRODUCTS ${AWS_REQUIRED_LIBS})
+list(TRANSFORM AWS_BUILD_BYPRODUCTS PREPEND ${AWS_INSTALL_DIR}/lib/lib)
+list(TRANSFORM AWS_BUILD_BYPRODUCTS APPEND ".a")
+message(STATUS "[AWS] AWS_BUILD_BYPRODUCTS = ${AWS_BUILD_BYPRODUCTS}")
+
 ExternalProject_Add(awssdk
-    PREFIX              ${CMAKE_BINARY_DIR}/vendor/awssdk
-    GIT_REPOSITORY      https://github.com/aws/aws-sdk-cpp.git
-    GIT_TAG             1.7.348
-    UPDATE_COMMAND      ""
-    CMAKE_ARGS
-        -DBUILD_ONLY:STRING=s3
-        -DBUILD_SHARED_LIBS=ON
-        -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=ON
-        # -DCMAKE_SOURCE_DIR:PATH=<SOURCE_DIR>
-        -DENABLE_TESTING:BOOL=OFF
-        -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/vendor/awssdk
-        -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-        -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-        -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}
+  GIT_REPOSITORY      https://github.com/aws/aws-sdk-cpp.git
+  GIT_TAG             1.7.348
+  PREFIX              "vendor/awssdk"
+  INSTALL_DIR         ${AWS_INSTALL_DIR}
+  CMAKE_ARGS
+    -DBUILD_ONLY=core\\$<SEMICOLON>s3\\$<SEMICOLON>s3-encryption
+    -DBUILD_SHARED_LIBS:BOOL=OFF
+    -DBUILD_STATIC_LIBS:BOOL=ON
+    -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=ON
+    # -DCMAKE_SOURCE_DIR:PATH=<SOURCE_DIR>
+    -DENABLE_TESTING:BOOL=OFF
+    -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/${AWS_INSTALL_DIR}
+    -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+    -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+    -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}
+  BUILD_BYPRODUCTS ${AWS_BUILD_BYPRODUCTS}
 )
 
 ExternalProject_Get_Property(awssdk INSTALL_DIR)
-message(STATUS "[AWS] INSTALL_DIR = ${INSTALL_DIR}")
+set(AWS_INCLUDE_DIR ${INSTALL_DIR}/include)
+message(STATUS "[AWS] AWS_INSTALL_DIR = ${INSTALL_DIR}")
+message(STATUS "[AWS] AWS_INCLUDE_DIR = ${INCLUDE_DIR}")
 
-set(AWS_INCLUDE_DIR       ${INSTALL_DIR}/include)
-set(AWS_LIBRARY_CORE_PATH ${INSTALL_DIR}/lib/libaws-cpp-sdk-core.so)
-set(AWS_LIBRARY_S3_PATH   ${INSTALL_DIR}/lib/libaws-cpp-sdk-s3.so)
-add_library(awssdk::core SHARED IMPORTED)
-add_library(awssdk::s3   SHARED IMPORTED)
+foreach(LIBNAME ${AWS_REQUIRED_LIBS})
+  add_library(${LIBNAME} STATIC IMPORTED)
+  set_property(TARGET ${LIBNAME} PROPERTY IMPORTED_LOCATION ${INSTALL_DIR}/lib/lib${LIBNAME}.a)
+  set_property(TARGET ${LIBNAME} APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${AWS_INCLUDE_DIR})
+  add_dependencies(${LIBNAME} awssdk)
+endforeach()
 
-set_property(TARGET awssdk::core PROPERTY IMPORTED_LOCATION ${AWS_LIBRARY_CORE_PATH})
-set_target_properties(awssdk::s3   PROPERTIES IMPORTED_LOCATION ${AWS_LIBRARY_S3_PATH})
-set(AWS_LINK_LIBRARIES awssdk::s3 awssdk::core)
+set(AWS_LINK_LIBRARIES ${AWS_REQUIRED_LIBS})
