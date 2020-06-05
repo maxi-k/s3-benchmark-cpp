@@ -1,10 +1,15 @@
 FROM ubuntu:18.04
 
-RUN apt update && apt install \
+RUN apt update -y && apt install -y \
       cmake \
       g++ \
-      ssl-dev
+      libssl-dev \
+      git \
+      python3 \
+      zlib1g-dev \
+      curl \
+      libcurl4-openssl-dev
 
 WORKDIR /project
 
-CMD scripts/rebuild-target
+CMD ls && scripts/rebuild-target

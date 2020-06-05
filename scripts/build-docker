@@ -1,6 +1,14 @@
 #!/bin/sh
+
+# Rebuild if arg given
+[ ! -z $1 ] && docker build --tag cmake-builder:1.0 .
+
+# Run
 docker run \
   -it \
   --name cmake-builder \
-  -v .:/project
+  -v $(pwd):/project \
+  cmake-builder:1.0 
 
+
+docker ps -a | grep cmake-builder | awk '{ print $1 }' | xargs docker rm
