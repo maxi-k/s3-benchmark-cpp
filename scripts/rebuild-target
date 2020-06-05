@@ -6,8 +6,15 @@ BUILD_TARGET=${2:-"s3benchmark_cli_exec"}
 FOLDER="cmake-build-$BENCH_TARGET"
 
 # Setup Build folder
-test -d $FOLDER || (echo "Expected build folder does not exist, exiting." && exit)
+rm -rf $FOLDER
+mkdir $FOLDER
+
+# Setup cmake
+echo "[REBUILD TARGET] Creating cmake build environment"
+cd $FOLDER
+cmake -D BENCH_TARGET=$BENCH_TARGET ..
 
 # Build using cmake
 echo "[REBUILD TARGET] Building..."
+cd ..
 cmake --build $FOLDER --target $BUILD_TARGET -- -j 2

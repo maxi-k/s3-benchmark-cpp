@@ -8,12 +8,6 @@
 
 file(GLOB_RECURSE BENCH_LIB_SRC_CC "${BENCH_LIB_DIR}/src/*.cpp")
 
-# ---------------------------------------------------------------------------
-# Libraries
-# ---------------------------------------------------------------------------
-
-add_library(s3benchmark_lib STATIC ${BENCH_LIB_SRC_CC})
-target_link_libraries(s3benchmark_lib gflags)
 
 # ---------------------------------------------------------------------------
 # Linting

@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# BillBeam Box - Linter
+# S3 Benchmark - Linter
 # ---------------------------------------------------------------------------
 
 include(ExternalProject)
@@ -10,7 +10,7 @@ ExternalProject_Add(
     cpplint_src
     PREFIX "vendor/cpplint"
     GIT_REPOSITORY "https://github.com/google/styleguide.git"
-    GIT_TAG 71ec7f1e524969c19ce33cfc72e8e023f2b98ee2
+    GIT_TAG 2282a0495b5a1f8b6c9fa5c6695be7b5377e805e
     TIMEOUT 10
     CONFIGURE_COMMAND ""
     BUILD_COMMAND ""

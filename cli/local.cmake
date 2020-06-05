@@ -3,17 +3,11 @@
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-# Include AWS Libraries
-# ---------------------------------------------------------------------------
-
-#### TODO ####
-
-# ---------------------------------------------------------------------------
 # Include Project Directories
 # ---------------------------------------------------------------------------
 include("${BENCH_CLI_DIR}/include/local.cmake")
 include_directories(
-    ${CMAKE_LIBRARY_DIR}/include
+    ${BENCH_CLI_DIR}/include
     ${GTEST_INCLUDE_DIR}
     ${GMOCK_INCLUDE_DIR}
     ${GFLAGS_INCLUDE_DIR}
@@ -22,7 +16,5 @@ include_directories(
 include("${BENCH_CLI_DIR}/src/local.cmake")
 
 add_executable(s3benchmark_cli_exec ${BENCH_CLI_SRC_CC})
-target_link_libraries(s3benchmark_cli_exec
-                        # ${BENCH_CLI_AWS_SDK_LIB}
-                        # ${RASPBPI_PCSC_LIB}
-                        )
+add_dependencies(s3benchmark_cli_exec s3benchmark_lib)
+target_link_libraries(s3benchmark_cli_exec s3benchmark_lib gflags ${AWS_LINK_LIBRARIES})
