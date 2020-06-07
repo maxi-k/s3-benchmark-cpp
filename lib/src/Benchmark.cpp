@@ -3,21 +3,35 @@
 //
 #include "s3benchmark/Benchmark.hpp"
 
-#include <cstdio>
+#include <sys/stat.h>
+#include <fstream>
+#include <iostream>
+#include <string>
 
-using namespace s3benchmark;
+#include "s3benchmark/Config.hpp"
 
-Benchmark::Benchmark() {
-}
+namespace s3benchmark {
 
-void Benchmark::list_buckets(const region_t &region) {
-  printf("Listing buckets in region %s\n");
-}
+    Benchmark::Benchmark(const Config &config)
+            : config(config)
+            , client(Aws::S3::S3Client(config.aws_config())) {
+    }
 
-Aws::String Benchmark::region_name(const region_t &region) {
-    return Aws::S3::Model::BucketLocationConstraintMapper::GetNameForBucketLocationConstraint(region);
-}
+    void Benchmark::list_buckets() {
+        auto resp = client.ListBuckets();
+        for (auto& bucket : resp.GetResult().GetBuckets()) {
+            std::cout << "Found bucket: " << bucket.GetName() << std::endl;
+        }
+    }
 
-// object_head_t Benchmark::fetch_object_head(const std::string &object_name) {
-//     auto req = Aws::S3::Model::HeadObjectRequest()
-// }
+    object_head_t Benchmark::fetch_object_head() {
+        auto req = Aws::S3::Model::HeadObjectRequest()
+                .WithBucket(config.bucket_name)
+                .WithKey(config.object_name);
+        auto resp = client.HeadObject(req);
+        auto len = resp.GetResult().GetContentLength();
+        std::cout << "Content length: " << len << std::endl;
+        return resp;
+    }
+
+}  // namespace s3benchmark

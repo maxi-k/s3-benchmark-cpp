@@ -8,7 +8,6 @@ FOLDER="cmake-build-$BENCH_TARGET"
 # Setup Build folder
 test -d $FOLDER || (echo "Expected build folder does not exist, exiting." && exit)
 
-
 # Build using cmake
 echo "[REBUILD TARGET] Building..."
 cmake --build $FOLDER --target $BUILD_TARGET -- -j 2

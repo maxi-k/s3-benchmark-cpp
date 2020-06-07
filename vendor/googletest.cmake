@@ -12,9 +12,7 @@ ExternalProject_Add(
     PREFIX "vendor/gtm"
     GIT_REPOSITORY "https://github.com/google/googletest.git"
     GIT_TAG release-1.8.0
-    TIMEOUT 10
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
+    TIMEOUT 10 CONFIGURE_COMMAND "" BUILD_COMMAND ""
     INSTALL_COMMAND ""
     UPDATE_COMMAND ""
 )

@@ -5,7 +5,6 @@
 include("${BENCH_LIB_DIR}/include/local.cmake")
 include_directories(
     ${BENCH_LIB_DIR}/include
-    ${AWS_INCLUDE_DIR}
     ${GTEST_INCLUDE_DIR}
     ${GMOCK_INCLUDE_DIR}
     ${GFLAGS_INCLUDE_DIR}
@@ -14,20 +13,14 @@ include_directories(
 include("${BENCH_LIB_DIR}/src/local.cmake")
 
 # ---------------------------------------------------------------------------
-# Dependencies
-# ---------------------------------------------------------------------------
-
-# Use shared libraries, which is the default for the AWS C++ SDK build.
-# option(BUILD_SHARED_LIBS "Build shared libraries" ON)
-
-# Locate the AWS SDK for C++ package.
-# defines AWSSDK_LINK_LIBRARIES
-
-# find_package(AWSSDK REQUIRED COMPONENTS s3)
-
-# ---------------------------------------------------------------------------
 # Libraries
 # ---------------------------------------------------------------------------
 
 add_library(s3benchmark_lib STATIC ${BENCH_LIB_SRC_CC})
-target_link_libraries(s3benchmark_lib ${AWS_LINK_LIBRARIES} OpenSSL::Crypto)
+target_link_libraries(s3benchmark_lib ${AWS_LINK_LIBRARIES} OpenSSL::Crypto CURL::libcurl)
+
+# Link against CoreFoundation if on mac
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    find_library(CORE_FOUNDATION CoreFoundation)
+    target_link_libraries(s3benchmark_lib ${CORE_FOUNDATION})
+endif()

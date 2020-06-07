@@ -9,12 +9,30 @@ FOLDER=${3:-"cmake-build-$BENCH_TARGET"}
 rm -rf $FOLDER
 mkdir $FOLDER
 
+# Use ninja if available, it's faster
+command -v ninja 1>/dev/null && \
+    CMAKE_NINJA_OPTION="-GNinja" && \
+    echo "Found ninja, using it instead of make"
+
+# Set openssl dir to the brew version if on mac
+case "$(uname -s)" in
+    Darwin) CMAKE_OPENSSL_OPTION="-DOPENSSL_ROOT_DIR=/usr/local/opt/openssl"
+esac
+
 # Setup cmake
 echo "[REBUILD TARGET] Creating cmake build environment"
 cd $FOLDER
-cmake -D BENCH_TARGET=$BENCH_TARGET ..
+cmake -DBENCH_TARGET=$BENCH_TARGET \
+      -DCMAKE_EXPORT_COMPILE_COMMANDS=YES \
+      $CMAKE_NINJA_OPTION \
+      $CMAKE_OPENSSL_OPTION \
+      ..
 
 # Build using cmake
 echo "[REBUILD TARGET] Building..."
 cd ..
-cmake --build $FOLDER --target $BUILD_TARGET -- -j 2
+if [ -z $CMAKE_NINJA_OPTION ]; then
+    cmake --build $FOLDER --target $BUILD_TARGET -- -j 2
+else
+    ninja
+fi

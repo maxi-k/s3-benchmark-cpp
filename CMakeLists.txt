@@ -5,7 +5,7 @@
 project(S3Benchmark LANGUAGES C CXX ASM)
 cmake_minimum_required(VERSION 3.10.2)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ---------------------------------------------------------------------------
@@ -60,8 +60,8 @@ message(STATUS "    CMAKE_STATIC_LIBRARY_SUFFIX = ${CMAKE_STATIC_LIBRARY_SUFFIX}
 message(STATUS "    CMAKE_SHARED_LIBRARY_PREFIX = ${CMAKE_SHARED_LIBRARY_PREFIX}")
 message(STATUS "    CMAKE_STATIC_LIBRARY_PREFIX = ${CMAKE_STATIC_LIBRARY_PREFIX}")
 message(STATUS "[AWSSDK] settings")
-message(STATUS "    AWS_INCLUDE_DIRS            = ${AWS_INCLUDE_DIRS}")
-message(STATUS "    AWSSDK_LINK_LIBRARIES       = ${AWSSDK_LINK_LIBRARIES}")
+message(STATUS "    AWS_INCLUDE_DIR             = ${AWS_INCLUDE_DIR}")
+message(STATUS "    AWS_LINK_LIBRARIES          = ${AWS_LINK_LIBRARIES}")
 message(STATUS "[CPPLINT] settings")
 message(STATUS "    CPPLINT_SCRIPT_PATH         = ${CPPLINT_SCRIPT_PATH}")
 message(STATUS "    lint_targets                = ${CMAKE_CXX_CPPLINT}")

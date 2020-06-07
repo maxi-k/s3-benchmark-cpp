@@ -5,6 +5,7 @@ Include(ExternalProject)
 # Load OpenSSL as a static lib
 # set(OPENSSL_USE_STATIC_LIBS TRUE)
 find_package(OpenSSL REQUIRED)
+find_package(CURL REQUIRED)
 
 # Because we are building static libraries,
 # all sub-dependencies of the libraries we
@@ -56,8 +57,10 @@ ExternalProject_Add(awssdk
 
 ExternalProject_Get_Property(awssdk INSTALL_DIR)
 set(AWS_INCLUDE_DIR ${INSTALL_DIR}/include)
+file(MAKE_DIRECTORY ${AWS_INCLUDE_DIR})
 message(STATUS "[AWS] AWS_INSTALL_DIR = ${INSTALL_DIR}")
-message(STATUS "[AWS] AWS_INCLUDE_DIR = ${INCLUDE_DIR}")
+message(STATUS "[AWS] AWS_INCLUDE_DIR = ${AWS_INCLUDE_DIR}")
+
 
 foreach(LIBNAME ${AWS_REQUIRED_LIBS})
   add_library(${LIBNAME} STATIC IMPORTED)
