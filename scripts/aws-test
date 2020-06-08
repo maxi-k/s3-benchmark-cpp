@@ -1,0 +1,17 @@
+#!/bin/sh
+[ -z $1 ] || [ -z $2 ] &&
+  echo "Arguments: " &&
+  echo "(1) ssh-key file (required)" &&
+  echo "(2) aws instance hostname (required)" &&
+  echo "(3) program file name (default: ./cmake-build-cli-docker/s3benchmark_cli_exec)" &&
+  echo "(4) aws user (default: ubuntu)" &&
+  exit 2
+
+SSH_KEY=$1
+AWS_INSTANCE=$2
+PROGRAM_FILE=${3:-./cmake-build-cli-docker/s3benchmark_cli_exec}
+AWS_USER=${4:-ubuntu}
+
+
+rsync --progress -e "ssh -i $SSH_KEY" $PROGRAM_FILE $AWS_USER@$AWS_INSTANCE:/home/$AWS_USER/s3benchmark
+ssh -i $SSH_KEY $AWS_USER@$AWS_INSTANCE

@@ -2,8 +2,8 @@
 // Created by Maximilian Kuschewski on 07.06.20.
 //
 
-#ifndef _S3BENCHMARK_TYPES_HPP
-#define _S3BENCHMARK_TYPES_HPP
+#ifndef _S3BENCHMARK_UTIL_HPP
+#define _S3BENCHMARK_UTIL_HPP
 
 #include <thread>
 #include <random>
@@ -12,7 +12,7 @@
 namespace s3benchmark {
     namespace hardware {
         inline size_t thread_count() noexcept {
-            return std::min(std::thread::hardware_concurrency(), 1u);
+            return std::max(std::thread::hardware_concurrency(), 1u);
         }
     }
 
@@ -37,9 +37,37 @@ namespace s3benchmark {
     namespace stream {
         class VoidBuffer : public std::streambuf {
         public:
-            int overflow(int c) { return c; }
+            int overflow(int c) override {
+                return c;
+            }
         };
+    }
+
+    namespace format {
+        // Not using c++ 20 std::format
+        // from https://stackoverflow.com/questions/2342162/stdstring-formatting-like-sprintf
+        template<typename ... Args>
+        inline std::string string_format(const std::string& format, Args ... args) {
+            size_t size = snprintf( nullptr, 0, format.c_str(), args ... ) + 1; // Extra space for '\0'
+            if( size <= 0 ){ throw std::runtime_error( "Error during formatting." ); }
+            std::unique_ptr<char[]> buf( new char[ size ] );
+            snprintf( buf.get(), size, format.c_str(), args ... );
+            return std::string( buf.get(), buf.get() + size - 1 ); // We don't want the '\0' inside
+        }
+
+        inline std::string byte_format(double bytes) {
+            if (bytes >= units::gib) {
+                return string_format("%.f GiB", bytes / units::gib);
+            }
+            if (bytes >= units::mib) {
+                return string_format("%.f MiB", bytes / units::mib);
+            }
+            if (bytes >= units::kib) {
+                return string_format("%.f KiB", bytes / units::kib);
+            }
+            return string_format("%d", bytes);
+        }
     }
 }
 
-#endif //_S3BENCHMARK_TYPES_HPP
+#endif //_S3BENCHMARK_UTIL_HPP

@@ -57,6 +57,8 @@ namespace s3benchmark {
     void Config::sanitize_client_config() {
         this->client_config.region = region;
         this->client_config.httpRequestTimeoutMs = 3 * units::ms_per_min;
+        this->client_config.maxConnections = abs((size_t) this->threads_max);
+        this->client_config.scheme = Aws::Http::Scheme::HTTPS;
     }
 
 }  // namespace s3benchmark
