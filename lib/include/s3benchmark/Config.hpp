@@ -12,6 +12,8 @@ namespace s3benchmark {
     using config_t = Aws::Client::ClientConfiguration;
 
     struct ConfigParameters {
+        bool dry_run;
+        bool quiet;
         bool threads_static;
         double threads_min;
         double threads_max;
@@ -40,7 +42,7 @@ namespace s3benchmark {
     public:
         inline const static char* DEFAULT_REGION = "eu-central-1";
         inline const static char* DEFAULT_BUCKET_NAME = "masters-thesis-mk";
-        inline const static char* DEFAULT_OBJECT_NAME = "benchmark/largefile-1G.bin";
+        inline const static char* DEFAULT_OBJECT_NAME = "benchmark/largefile.bin";
 
         explicit Config(ConfigParameters &&config);
 

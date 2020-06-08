@@ -8,8 +8,14 @@
 namespace s3benchmark::cli {
     void run(const s3benchmark::Config &config) {
         auto bm = Benchmark(config);
-        auto log = CliLogger(std::cout);
-        bm.run_full_benchmark(log);
+        auto void_log = Logger();
+        auto cli_log = CliLogger(std::cout);
+        cli_log.print_config_params(config);
+        if (config.dry_run) {
+            // TODO: print dry run
+        } else {
+            bm.run_full_benchmark(config.quiet ? void_log : cli_log);
+        }
     }
 }
 

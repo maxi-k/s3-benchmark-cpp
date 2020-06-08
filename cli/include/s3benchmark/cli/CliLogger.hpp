@@ -10,14 +10,17 @@
 
 namespace s3benchmark {
     class CliLogger : public Logger {
-    protected:
+        std::ostream &out;
+        template<typename S, typename T> inline void print_conf_var(S &name, T &var) const  {
+            out << "| \033[1m" << name << "\033[0m\t\t:\t" << var << "\033[59G|\n";
+        }
     public:
         explicit CliLogger(std::ostream &output);
         void print_run_header() const override;
         void print_run_footer() const override;
-        void print_run_results(RunParameters &params, RunResults &results) const override;
-        void print_run_params(RunParameters &params) const override;
-        void print_config_params(ConfigParameters &config) const override;
+        void print_run_results(const RunParameters &params, const RunResults &results) const override;
+        void print_run_params(const RunParameters &params) const override;
+        void print_config_params(const ConfigParameters &config) const override;
     };
 }  // namespace s3benchmark::cli
 

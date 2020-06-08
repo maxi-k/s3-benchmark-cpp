@@ -37,6 +37,9 @@ namespace s3benchmark {
                 .WithBucket(config.bucket_name)
                 .WithKey(config.object_name);
         auto resp = client.HeadObject(req);
+        if (!resp.IsSuccess()) {
+            throw std::runtime_error("Could not fetch object head.");
+        }
         auto len = resp.GetResult().GetContentLength();
         return len;
     }
