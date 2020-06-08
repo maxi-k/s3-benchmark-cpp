@@ -7,6 +7,7 @@
 
 #include <thread>
 #include <random>
+#include <iostream>
 
 namespace s3benchmark {
     namespace hardware {
@@ -30,6 +31,13 @@ namespace s3benchmark {
             thread_local static std::mt19937 engine {std::random_device{}()};
             thread_local static std::uniform_int_distribution<T> dist(min, max);
             return dist(engine);
+        };
+    }
+
+    namespace stream {
+        class VoidBuffer : public std::streambuf {
+        public:
+            int overflow(int c) { return c; }
         };
     }
 }

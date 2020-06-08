@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
 
     auto size = b.fetch_object_size();
     for (size_t i = 0; i < 64; ++i) {
-        auto lat = b.fetch_random_range(100 * units::kib, size);
+        auto lat = b.fetch_random_range(1 * units::mib, size);
         std::cout << "Latency: (" << lat.first_byte << ", " << lat.last_byte << ")" << std::endl;
     }
 

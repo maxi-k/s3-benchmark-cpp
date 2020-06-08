@@ -2,6 +2,8 @@
 // Created by Maximilian Kuschewski on 2020-05-06
 //
 #include "s3benchmark/Benchmark.hpp"
+#include <aws/s3/model/HeadObjectRequest.h>
+#include <aws/s3/model/GetObjectRequest.h>
 
 #include <sys/stat.h>
 #include <fstream>
@@ -9,9 +11,7 @@
 #include <string>
 #include <sstream>
 #include <chrono>
-
-#include <aws/s3/model/HeadObjectRequest.h>
-#include <aws/s3/model/GetObjectRequest.h>
+#include <vector>
 
 #include "s3benchmark/Config.hpp"
 
@@ -39,19 +39,22 @@ namespace s3benchmark {
     }
 
     Latency Benchmark::fetch_range(const ByteRange &range) const {
-        auto req = Aws::S3::Model::GetObjectRequest()
-                .WithBucket(config.bucket_name)
-                .WithKey(config.object_name)
-                .WithRange(range.as_http_header());
-        auto t_start = std::chrono::steady_clock::now();
-        auto res = client.GetObject(req).GetResultWithOwnership();
-        auto t_first_byte  = std::chrono::steady_clock::now();
+        // Create output buffer
         auto length = range.length();
         auto read_buf = std::vector<char>(length);
-        while (!res.GetBody().eof()) {
-            res.GetBody().read(read_buf.data(), length);
-        }
-        auto t_last_byte = std::chrono::steady_clock::now();
+        // Get Object, measure time to first byte.
+        auto t_start = std::chrono::high_resolution_clock::now();
+        auto resp = client.GetObject(Aws::S3::Model::GetObjectRequest()
+                                             .WithBucket(config.bucket_name)
+                                             .WithKey(config.object_name)
+                                             .WithRange(range.as_http_header()));
+        auto t_first_byte  = std::chrono::high_resolution_clock::now();
+        // Drain response body stream, measure last time byte when done
+        auto res = resp.GetResultWithOwnership();
+        stream::VoidBuffer buf;
+        std::ostream(&buf) << res.GetBody().rdbuf();
+        auto t_last_byte = std::chrono::high_resolution_clock::now();
+        // Calculate and return first- and last byte latency
         return Latency {
             std::chrono::duration_cast<std::chrono::milliseconds>(t_first_byte - t_start).count(),
             std::chrono::duration_cast<std::chrono::milliseconds>(t_last_byte - t_start).count()
