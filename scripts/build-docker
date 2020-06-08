@@ -3,6 +3,8 @@
 # Rebuild if arg given
 [ ! -z $1 ] && docker build --tag cmake-builder:1.0 .
 
+mkdir -p cmake-build-cli-docker
+
 # Run
 docker run \
   -it \

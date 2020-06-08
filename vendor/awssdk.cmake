@@ -70,5 +70,5 @@ endforeach()
 find_package(OpenSSL REQUIRED)
 find_package(CURL REQUIRED)
 
-set(AWS_LINK_LIBRARIES ${AWS_REQUIRED_LIBS} OpenSSL::Crypto CURL::libcurl)
+set(AWS_LINK_LIBRARIES ${AWS_REQUIRED_LIBS} OpenSSL::Crypto ${CURL_LIBRARY})
 message(STATUS "[AWS] AWS_LINK_LIBRARIES = ${AWS_LINK_LIBRARIES}")

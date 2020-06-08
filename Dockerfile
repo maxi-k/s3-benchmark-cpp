@@ -1,14 +1,17 @@
 FROM ubuntu:18.04
 
-RUN apt update -y && apt install -y \
-      cmake \
-      g++ \
+RUN apt-get update -y && apt-get install -y \
       git \
       python3 \
-      curl \
+      g++ \
+      ninja-build \
+      cmake \
       libssl-dev \
       zlib1g-dev \
-      libcurl4-openssl-dev
+      curl \
+      libcurl4 \
+      libcurl4-openssl-dev \
+      libcurl3-gnutls
 
 WORKDIR /project
 
