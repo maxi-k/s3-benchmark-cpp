@@ -2,10 +2,6 @@
 # S3 Benchmark - AWS SDK
 # ---------------------------------------------------------------------------
 Include(ExternalProject)
-# Load OpenSSL as a static lib
-# set(OPENSSL_USE_STATIC_LIBS TRUE)
-find_package(OpenSSL REQUIRED)
-find_package(CURL REQUIRED)
 
 # Because we are building static libraries,
 # all sub-dependencies of the libraries we
@@ -16,8 +12,8 @@ set(AWS_REQUIRED_LIBS
   aws-cpp-sdk-core               # libaws-cpp-sdk-core.a
   aws-cpp-sdk-kms                # libaws-cpp-sdk-kms.a
   aws-cpp-sdk-s3-encryption      # libaws-cpp-sdk-s3-encryption.a
-  aws-checksums                  # libaws-checksums.a
   aws-c-event-stream             # libaws-c-event-stream.a
+  aws-checksums                  # libaws-checksums.a
   aws-c-common                   # libaws-c-common.a
   )
 
@@ -69,4 +65,10 @@ foreach(LIBNAME ${AWS_REQUIRED_LIBS})
   add_dependencies(${LIBNAME} awssdk)
 endforeach()
 
-set(AWS_LINK_LIBRARIES ${AWS_REQUIRED_LIBS})
+# Load OpenSSL as a static lib
+# set(OPENSSL_USE_STATIC_LIBS TRUE)
+find_package(OpenSSL REQUIRED)
+find_package(CURL REQUIRED)
+
+set(AWS_LINK_LIBRARIES ${AWS_REQUIRED_LIBS} OpenSSL::Crypto CURL::libcurl)
+message(STATUS "[AWS] AWS_LINK_LIBRARIES = ${AWS_LINK_LIBRARIES}")

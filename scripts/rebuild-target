@@ -5,10 +5,6 @@ BENCH_TARGET=${1:-"cli"}
 BUILD_TARGET=${2:-"s3benchmark_cli_exec"}
 FOLDER=${3:-"cmake-build-$BENCH_TARGET"}
 
-# Setup Build folder
-rm -rf $FOLDER
-mkdir $FOLDER
-
 # Use ninja if available, it's faster
 command -v ninja 1>/dev/null && \
     CMAKE_NINJA_OPTION="-GNinja" && \
@@ -20,8 +16,10 @@ case "$(uname -s)" in
 esac
 
 # Setup cmake
+echo $(pwd)
 echo "[REBUILD TARGET] Creating cmake build environment"
 cd $FOLDER
+echo $(pwd)
 cmake -DBENCH_TARGET=$BENCH_TARGET \
       -DCMAKE_EXPORT_COMPILE_COMMANDS=YES \
       $CMAKE_NINJA_OPTION \
@@ -30,9 +28,7 @@ cmake -DBENCH_TARGET=$BENCH_TARGET \
 
 # Build using cmake
 echo "[REBUILD TARGET] Building..."
+echo $(pwd)
 cd ..
-if [ -z $CMAKE_NINJA_OPTION ]; then
-    cmake --build $FOLDER --target $BUILD_TARGET -- -j 2
-else
-    ninja
-fi
+echo $(pwd)
+cmake --build $FOLDER --target $BUILD_TARGET -- -j 2
