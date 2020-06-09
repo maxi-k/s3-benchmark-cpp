@@ -8,7 +8,7 @@
 #include <exception>
 
 namespace s3benchmark {
-    s3benchmark::Config::Config(ConfigParameters &&parameters)
+    Config::Config(ConfigParameters &&parameters)
         : client_config()
         , ConfigParameters(std::move(parameters)) {
         this->sanitize_params();
@@ -60,6 +60,21 @@ namespace s3benchmark {
         this->client_config.httpRequestTimeoutMs = 3 * units::ms_per_min;
         this->client_config.maxConnections = std::abs(static_cast<long>(this->threads_max));
         this->client_config.scheme = Aws::Http::Scheme::HTTPS;
+    }
+
+    EC2Config::EC2Config() {
+        // From https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
+        std::string prefix = "http://169.254.169.254/latest/meta-data/";
+        try {
+            this->ec2_instance_id = http::curl_get(prefix + "instance-id");
+            this->ec2_instance_type = http::curl_get(prefix + "instance-type");
+            this->ec2_region = http::curl_get(prefix + "placement/availability-zone");
+        } catch (std::runtime_error &e) {
+            this->ec2_instance_id = "unknown-instance-id";
+            this->ec2_instance_type = "unknown-instance-type";
+            this->ec2_region = "unknown-region";
+        }
+        this->hw_thread_count = hardware::thread_count();
     }
 
 }  // namespace s3benchmark

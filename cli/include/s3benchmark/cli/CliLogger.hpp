@@ -18,9 +18,10 @@ namespace s3benchmark {
         explicit CliLogger(std::ostream &output);
         void print_run_header() const override;
         void print_run_footer() const override;
-        void print_run_results(const RunParameters &params, const RunResults &results) const override;
+        void print_run_stats(const RunStats &stats) const override;
         void print_run_params(const RunParameters &params) const override;
         void print_config_params(const ConfigParameters &config) const override;
+        void print_ec2_config(const EC2Config &config) const override;
     };
 }  // namespace s3benchmark::cli
 

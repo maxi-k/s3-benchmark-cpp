@@ -18,13 +18,14 @@ include("${BENCH_LIB_DIR}/src/local.cmake")
 # ---------------------------------------------------------------------------
 
 find_package(Threads REQUIRED)
+find_package(CURL REQUIRED)
 
 # ---------------------------------------------------------------------------
 # Libraries
 # ---------------------------------------------------------------------------
 
 add_library(s3benchmark_lib STATIC ${BENCH_LIB_SRC_CC})
-target_link_libraries(s3benchmark_lib ${AWS_LINK_LIBRARIES} Threads::Threads)
+target_link_libraries(s3benchmark_lib ${AWS_LINK_LIBRARIES} ${CURL_LIBRARY} Threads::Threads)
 
 # Link against CoreFoundation if on mac
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")

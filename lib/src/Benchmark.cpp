@@ -73,27 +73,27 @@ namespace s3benchmark {
 
     RunResults Benchmark::do_run(RunParameters &params) const {
         auto max_obj_size = this->fetch_object_size();
-        auto per_thread_samples = std::max(params.sample_count / params.thread_count, params.thread_count);
 
         std::vector<char> outbuf(params.thread_count * params.payload_size);
-        std::vector<latency_t> results(per_thread_samples * params.thread_count);
+        std::vector<latency_t> results(params.sample_count * params.thread_count);
         std::vector<std::thread> threads;
 
         clock::time_point start_time;
         bool do_start = false;
 
         for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
-           threads.emplace_back([this, t_id, per_thread_samples, max_obj_size, &outbuf, &params, &results, &do_start, &start_time]() {
+           threads.emplace_back([this, t_id, max_obj_size, &outbuf, &params, &results, &do_start, &start_time]() {
                auto buf = outbuf.data() + t_id * params.payload_size;
                auto range = random_range_in(params.payload_size, max_obj_size);
-               auto idx_start = per_thread_samples * t_id;
+               auto idx_start = params.sample_count * t_id;
+
                if (t_id != params.thread_count - 1) {
                    while (!do_start) { } // wait until all threads are started
                } else {
                    do_start = true; // the last started thread sets the start time
                    start_time = clock::now();
                }
-               for (unsigned i = 0; i < per_thread_samples; ++i) {
+               for (unsigned i = 0; i < params.sample_count; ++i) {
                    results[idx_start + i] = this->fetch_range(range, buf, params.payload_size);
                }
            });
@@ -120,7 +120,8 @@ namespace s3benchmark {
             for (size_t thread_count = config.threads_min; thread_count <= config.threads_max; thread_count *= 2) {
                 params.thread_count =  thread_count;
                 auto results = this->do_run(params);
-                logger.print_run_results(params, results);
+                auto stats = RunStats(params, results);
+                logger.print_run_stats(stats);
             }
             logger.print_run_footer();
         }

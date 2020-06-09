@@ -33,7 +33,15 @@ namespace s3benchmark {
         std::string upload_stats;
     };
 
-    class Config : public ConfigParameters {
+    struct EC2Config {
+        std::string ec2_instance_id;
+        std::string ec2_instance_type;
+        std::string ec2_region;
+        size_t hw_thread_count;
+        EC2Config();
+    };
+
+    class Config : public ConfigParameters, public EC2Config {
         Aws::Client::ClientConfiguration client_config;
 
         void sanitize_params();

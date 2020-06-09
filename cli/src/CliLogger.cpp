@@ -10,26 +10,25 @@ namespace s3benchmark {
     CliLogger::CliLogger(std::ostream &output) : out(output) {}
 
     void CliLogger::print_run_header() const {
-        out << "                           +-------------------------------------------------------------------------------------------------+" << std::endl;
-        out << "                           |            Time to First Byte (ms)             |            Time to Last Byte (ms)              |" << std::endl;
-        out << "+---------+----------------+------------------------------------------------+------------------------------------------------+" << std::endl;
-        out << "| Threads |     Throughput |  avg   min   p25   p50   p75   p90   p99   max |  avg   min   p25   p50   p75   p90   p99   max |" << std::endl;
-        out << "+---------+----------------+------------------------------------------------+------------------------------------------------+" << std::endl;
+        out << "                                                      +-----------------------------+--------------------+" << std::endl;
+        out << "                                                      |     Completion Time [ms]    |    Sample Count    |" << std::endl;
+        out << "+---------+----------------+-----------+--------------+-----------------------------+--------------------+" << std::endl;
+        out << "| Threads |     Throughput | Exec Time | Download Sum |  min   max   avg   overall  |  thread   overall  |" << std::endl;
+        out << "+---------+----------------+-----------+--------------+-----------------------------+--------------------+" << std::endl;
     }
 
     void CliLogger::print_run_footer() const {
-        out << "+---------+----------------+------------------------------------------------+------------------------------------------------+" << std::endl;
+        out << "+---------+----------------+-----------+--------------+-----------------------------+--------------------+" << std::endl;
     }
 
-    void CliLogger::print_run_results(const RunParameters &params, const RunResults &results) const {
-        double time_s = results.overall_time.count() * 1.0 / units::ms_per_sec;
-        double downloaded_mb = (results.data_points.size() * params.payload_size * 1.0) / units::mib;
-        double throughput_mbps = downloaded_mb / time_s;
-        out << format::string_format("| %7d | \033[1;31m%9.1f MB/s\033[0m |  ---   ---   ---   ---   ---   ---   ---   --- | ---   ---   ---   ---   ---   ---   ---   ---  |",
-                                     params.thread_count,
-                                     throughput_mbps) // TODO: include ttfb/ttlb values
-                << std::endl;
-
+    void CliLogger::print_run_stats(const RunStats &stats) const {
+        out << format::string_format("| %7d ", stats.thread_count)
+            << format::string_format("| \033[1;31m%8.2f MiB/s\033[0m ", stats.throughput_mbps)
+            << format::string_format("|\033[1m%8.2f s\033[0m ", stats.duration.count() * 1.0 / units::ms_per_sec)
+            << format::string_format("|\033[1m%9.0f MiB\033[0m ", stats.download_sum * 1.0 / units::mib)
+            << format::string_format("|%5d %5d %5d %9d  ", stats.latency_min.count(), stats.latency_max.count(), stats.latency_avg.count(), stats.latency_sum.count())
+            << format::string_format("|%8d %9d  |", stats.sample_count, stats.samples_sum)
+            << std::endl;
     }
 
     void CliLogger::print_run_params(const RunParameters &params) const {
@@ -40,7 +39,6 @@ namespace s3benchmark {
 
     void CliLogger::print_config_params(const ConfigParameters &config) const {
         out << "\n+------------------- \033[1;32mRUN CONFIGURATION\033[0m -------------------+\n";
-        auto end_str = "+---------------------------------------------------------+\n";
         auto dry_run = config.dry_run ? "Yes" : "No";
         auto payload_dir = config.payloads_reverse ? "Backward" : "Forward";
 
@@ -56,13 +54,17 @@ namespace s3benchmark {
         print_conf_var("Threads Max", config.threads_max);
         print_conf_var("Threads Step", config.threads_step);
         print_conf_var("Sample Count", config.samples);
-        out << end_str;
+        out << "+---------------------------------------------------------+\n\n";
 
+    }
+
+    void CliLogger::print_ec2_config(const EC2Config &config) const {
         out << "\n+------------------- \033[1;32mDETECTED HARDWARE\033[0m -------------------+\n";
-        auto hw_threads = hardware::thread_count();
-        print_conf_var("Detected Cores", hw_threads);
-        // print_conf_var("Detected Instance Type", config.instance_type);
-        out << end_str;
+        print_conf_var("HW Threads", config.hw_thread_count);
+        print_conf_var("Instance Id", config.ec2_instance_id);
+        print_conf_var("Instance Type", config.ec2_instance_type);
+        print_conf_var("AWS Region", config.ec2_region);
+        out << "+---------------------------------------------------------+\n";
     }
 
 }  // namespace s3benchmark::cli

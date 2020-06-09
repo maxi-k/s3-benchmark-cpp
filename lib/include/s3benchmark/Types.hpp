@@ -10,6 +10,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include "Util.hpp"
 
 namespace s3benchmark {
     using latency_t = std::chrono::duration<size_t, std::ratio<1, 1000>>;
@@ -42,6 +43,37 @@ namespace s3benchmark {
     struct RunResults {
         std::vector<latency_t> data_points;
         latency_t overall_time;
+    };
+
+    struct RunStats : public RunParameters {
+        double throughput_mbps;
+        latency_t latency_avg;
+        latency_t latency_sum;
+        latency_t latency_min;
+        latency_t latency_max;
+        latency_t duration;
+        size_t download_sum;
+        size_t samples_sum;
+
+        RunStats(const RunParameters &params, const RunResults &run)
+            : RunParameters(params)
+            , samples_sum(run.data_points.size())
+            , duration(run.overall_time) {
+            latency_t l_min, l_max = run.data_points[0];
+            latency_t l_sum = latency_t::zero();
+            for (auto& dp : run.data_points) {
+                if (dp < l_min) l_min = dp;
+                if (dp > l_max) l_max = dp;
+                l_sum += dp;
+            }
+            latency_t l_avg = l_sum / this->samples_sum;
+            this->download_sum = samples_sum * params.payload_size;
+            this->throughput_mbps = (download_sum * 1.0 / units::mib) / (duration.count() * 1.0 / units::ms_per_sec);
+            this->latency_avg = l_avg;
+            this->latency_min = l_min;
+            this->latency_max = l_max;
+            this->latency_sum = l_sum;
+        }
     };
 }
 

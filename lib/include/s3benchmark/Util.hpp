@@ -9,6 +9,8 @@
 #include <random>
 #include <iostream>
 
+#include <curl/curl.h>
+
 namespace s3benchmark {
     namespace hardware {
         inline size_t thread_count() noexcept {
@@ -66,6 +68,34 @@ namespace s3benchmark {
                 return string_format("%.f KiB", bytes / units::kib);
             }
             return string_format("%d", bytes);
+        }
+    }
+
+    namespace http {
+        inline size_t curl_callback(char *body, size_t size_mult, size_t nmemb, void *userdata) {
+            auto size = size_mult * nmemb;
+            static_cast<std::string*>(userdata)->append(body, size);
+            return size;
+        }
+
+        inline std::string curl_get(const std::string &url, size_t timeout_ms = 1000) {
+            CURL *curl = curl_easy_init();
+            if (!curl) {
+                throw std::runtime_error("Could not initialize curl client.");
+            }
+            CURLcode res;
+            std::string body;
+            curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
+            curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &curl_callback);
+            curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, timeout_ms);
+            res = curl_easy_perform(curl);
+            if (res == 0) {
+                return body;
+            } else {
+                throw std::runtime_error("Failed fetching instance id.");
+            }
         }
     }
 }

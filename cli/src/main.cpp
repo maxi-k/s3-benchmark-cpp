@@ -11,6 +11,7 @@ namespace s3benchmark::cli {
         auto void_log = Logger();
         auto cli_log = CliLogger(std::cout);
         cli_log.print_config_params(config);
+        cli_log.print_ec2_config(config);
         if (config.dry_run) {
             // TODO: print dry run
         } else {
