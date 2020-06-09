@@ -40,7 +40,7 @@ namespace s3benchmark {
     };
 
     struct RunResults {
-        std::vector<Latency> data_points;
+        std::vector<latency_t> data_points;
         latency_t overall_time;
     };
 }

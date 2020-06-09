@@ -34,7 +34,7 @@ namespace s3benchmark {
 
     void CliLogger::print_run_params(const RunParameters &params) const {
         auto bytes = format::byte_format(params.payload_size * 1.0);
-        out << "Download performance with \033[1;33m" <<  bytes << "\033[0m objects\n" << std::endl;
+        out << "\nDownload performance with \033[1;33m" <<  bytes << "\033[0m objects\n" << std::endl;
     }
 
 

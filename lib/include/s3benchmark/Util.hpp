@@ -37,7 +37,7 @@ namespace s3benchmark {
     namespace stream {
         class VoidBuffer : public std::streambuf {
         public:
-            int overflow(int c) override {
+            inline int overflow(int c) override {
                 return c;
             }
         };

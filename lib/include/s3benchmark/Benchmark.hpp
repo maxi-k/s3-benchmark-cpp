@@ -26,10 +26,9 @@ namespace s3benchmark {
 
         void list_buckets() const;
         [[nodiscard]] size_t fetch_object_size() const;
-        [[nodiscard]] Latency fetch_range(const ByteRange &range) const;
-        [[nodiscard]] Latency fetch_random_range(size_t payload_size, size_t max_value) const;
+        [[nodiscard]] latency_t fetch_range(const ByteRange &range, char* outbuf, size_t bufsize) const;
 
-        [[nodiscard]] ByteRange random_range_in(size_t size, size_t max_value) const;
+        [[nodiscard]] static ByteRange random_range_in(size_t size, size_t max_value) ;
         [[nodiscard]] RunResults do_run(RunParameters &params) const;
         void run_full_benchmark(Logger &logger) const;
     };
