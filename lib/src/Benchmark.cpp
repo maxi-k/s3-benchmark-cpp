@@ -44,6 +44,13 @@ namespace s3benchmark {
         return len;
     }
 
+    [[nodiscard]] inline latency_t Benchmark::fetch_object(const Aws::S3::Model::GetObjectRequest &req) const {
+        auto start = clock::now();
+        client.GetObject(req);
+        auto end = clock::now();
+        return std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    }
+
     latency_t Benchmark::fetch_range(const ByteRange &range, char* outbuf, size_t bufsize) const {
         auto req = Aws::S3::Model::GetObjectRequest()
                 .WithBucket(config.bucket_name)
@@ -57,10 +64,7 @@ namespace s3benchmark {
             // return stream;
             return Aws::New<Aws::FStream>("S3Client", "/dev/null", std::ios_base::out);
         });
-        auto start = clock::now();
-        client.GetObject(req);
-        auto end = clock::now();
-        return std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        return this->fetch_object(req);
     }
 
     ByteRange Benchmark::random_range_in(size_t size, size_t max_value) {
@@ -78,13 +82,30 @@ namespace s3benchmark {
         std::vector<latency_t> results(params.sample_count * params.thread_count);
         std::vector<std::thread> threads;
 
+        std::vector<Aws::S3::Model::GetObjectRequest> requests;
+        requests.reserve(params.sample_count * params.thread_count);
+        Aws::IOStreamFactory stream_factory([]() {
+            // Faster method than stringstream?
+            // auto stream = Aws::New<Aws::StringStream>("S3Client");
+            // stream->rdbuf()->pubsetbuf(outbuf, bufsize);
+            // return stream;
+            return Aws::New<Aws::FStream>("S3Client", "/dev/null", std::ios_base::out);
+        });
+        for (int i = 0; i < params.sample_count * params.thread_count; ++i) {
+            auto req = Aws::S3::Model::GetObjectRequest()
+                    .WithBucket(config.bucket_name)
+                    .WithKey(config.object_name)
+                    .WithRange(random_range_in(params.payload_size, max_obj_size).as_http_header());
+            // Put data into outbuf
+            req.SetResponseStreamFactory(stream_factory);
+            requests.push_back(req);
+        }
+
         clock::time_point start_time;
         bool do_start = false;
 
         for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
-           threads.emplace_back([this, t_id, max_obj_size, &outbuf, &params, &results, &do_start, &start_time]() {
-               auto buf = outbuf.data() + t_id * params.payload_size;
-               auto range = random_range_in(params.payload_size, max_obj_size);
+           threads.emplace_back([this, t_id, max_obj_size, &requests, &params, &results, &do_start, &start_time]() {
                auto idx_start = params.sample_count * t_id;
 
                if (t_id != params.thread_count - 1) {
@@ -94,7 +115,7 @@ namespace s3benchmark {
                    start_time = clock::now();
                }
                for (unsigned i = 0; i < params.sample_count; ++i) {
-                   results[idx_start + i] = this->fetch_range(range, buf, params.payload_size);
+                   results[idx_start + i] = this->fetch_object(requests[idx_start + i]);
                }
            });
         }
