@@ -22,7 +22,8 @@ namespace s3benchmark {
 
     Benchmark::Benchmark(const Config &config)
             : config(config)
-            , client(Aws::S3::S3Client(config.aws_config())) {
+            , client(Aws::S3::S3Client(config.aws_config()))
+            , presigned_url(this->client.GeneratePresignedUrl(config.bucket_name, config.object_name, Aws::Http::HttpMethod::HTTP_GET, URL_TIMEOUT_S)) {
     }
 
     void Benchmark::list_buckets() const {
@@ -71,21 +72,57 @@ namespace s3benchmark {
         return { offset, offset + size };
     }
 
+    size_t Benchmark::fetch_url_curl_callback(char *body, size_t size_mult, size_t nmemb, void *userdata) {
+        auto size = size_mult * nmemb;
+        auto output = static_cast<char*>(userdata);
+        // payload size is always the same, just copy memcpy
+        // TODO: consider just forgoing this step, not relevant for benchmark.
+        memcpy(output, body, size);
+        return size;
+    }
+
+    void Benchmark::fetch_url_curl(CURL *curl, ByteRange &range, latency_t *latency_output, char* content_output) const {
+        CURLcode res;
+        curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
+        curl_easy_setopt(curl, CURLOPT_URL, this->presigned_url.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, content_output);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, Benchmark::fetch_url_curl_callback);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, CURL_TIMEOUT_MS);
+        curl_easy_setopt(curl, CURLOPT_RANGE, range.as_string().c_str());
+        auto start = clock::now();
+        res = curl_easy_perform(curl);
+        auto end = clock::now(); // TODO: is this after whole body arrives or after header arrives? -> curl doc
+        if (res != 0) {
+            throw std::runtime_error("Failed fetching bucket result");
+        }
+        *latency_output = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    }
+
     RunResults Benchmark::do_run(RunParameters &params) const {
-        auto max_obj_size = this->fetch_object_size();
-
-        std::vector<char> outbuf(params.thread_count * params.payload_size);
-        std::vector<latency_t> results(params.sample_count * params.thread_count);
-        std::vector<std::thread> threads;
-
+        auto overall_sample_count = params.sample_count * params.thread_count;
+        // Pre-generate request ranges
+        std::vector<ByteRange> request_ranges;
+        request_ranges.reserve(overall_sample_count);
+        for (int i = 0; i < overall_sample_count; ++i) {
+            request_ranges.push_back(random_range_in(params.payload_size, params.content_size));
+        }
+        // Thread variables for measuring time
         clock::time_point start_time;
         bool do_start = false;
-
+        // Allocate memory for the results
+        std::vector<char> outbuf(params.thread_count * params.payload_size);
+        std::vector<latency_t> results(overall_sample_count);
+        // Create a list for the threads, start them
+        std::vector<std::thread> threads;
         for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
-           threads.emplace_back([this, t_id, max_obj_size, &outbuf, &params, &results, &do_start, &start_time]() {
+           threads.emplace_back([this, t_id, &outbuf, &request_ranges, &params, &results, &do_start, &start_time]() {
                auto buf = outbuf.data() + t_id * params.payload_size;
-               auto range = random_range_in(params.payload_size, max_obj_size);
+               auto range = random_range_in(params.payload_size, params.content_size);
                auto idx_start = params.sample_count * t_id;
+               CURL* thread_curl = curl_easy_init();
+               if (!thread_curl) {
+                   throw std::runtime_error("Could not initialize curl client.");
+               }
 
                if (t_id != params.thread_count - 1) {
                    while (!do_start) { } // wait until all threads are started
@@ -94,8 +131,9 @@ namespace s3benchmark {
                    start_time = clock::now();
                }
                for (unsigned i = 0; i < params.sample_count; ++i) {
-                   results[idx_start + i] = this->fetch_range(range, buf, params.payload_size);
+                   this->fetch_url_curl(thread_curl, request_ranges[idx_start + i], &results[idx_start + i], buf);
                }
+               curl_easy_cleanup(thread_curl);
            });
         }
 
@@ -111,7 +149,7 @@ namespace s3benchmark {
 
     void Benchmark::run_full_benchmark(Logger &logger) const {
         // TODO: consider config.payloads_step
-        auto params = RunParameters{ config.samples, 1, 0 };
+        auto params = RunParameters{ config.samples, 1, 0, this->fetch_object_size() };
         for (size_t payload_size = config.payloads_min; payload_size <= config.payloads_max; payload_size *= 2) {
             params.payload_size = payload_size;
             logger.print_run_params(params);

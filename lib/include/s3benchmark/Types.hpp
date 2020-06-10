@@ -29,6 +29,12 @@ namespace s3benchmark {
             return s.str();
         }
 
+        inline std::string as_string() const {
+            std::ostringstream s;
+            s << first_byte << "-" << last_byte;
+            return s.str();
+        }
+
         inline size_t length() const {
             return last_byte - first_byte;
         }
@@ -38,6 +44,7 @@ namespace s3benchmark {
         size_t sample_count;
         size_t thread_count;
         size_t payload_size;
+        size_t content_size;
     };
 
     struct RunResults {

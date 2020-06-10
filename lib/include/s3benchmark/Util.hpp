@@ -34,6 +34,7 @@ namespace s3benchmark {
             thread_local static std::uniform_int_distribution<T> dist(min, max);
             return dist(engine);
         };
+
     }
 
     namespace stream {
@@ -91,6 +92,7 @@ namespace s3benchmark {
             curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &curl_callback);
             curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, timeout_ms);
             res = curl_easy_perform(curl);
+            curl_easy_cleanup(curl);
             if (res == 0) {
                 return body;
             } else {
