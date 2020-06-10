@@ -62,7 +62,7 @@ namespace s3benchmark {
         this->client_config.scheme = Aws::Http::Scheme::HTTP;
         this->client_config.verifySSL = false;
         this->client_config.enableTcpKeepAlive = true;
-        this->client_config.tcpKeepAliveIntervalMs = 5000;
+        // this->client_config.tcpKeepAliveIntervalMs = 5000;
     }
 
     EC2Config::EC2Config() {

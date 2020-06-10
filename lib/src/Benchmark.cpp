@@ -24,7 +24,7 @@ namespace s3benchmark {
             : config(config)
             , client(Aws::S3::S3Client(config.aws_config()))
             , presigned_url(this->client.GeneratePresignedUrl(config.bucket_name, config.object_name, Aws::Http::HttpMethod::HTTP_GET, URL_TIMEOUT_S)) {
-        this->presigned_url.replace(0, 5, "http");
+        // this->presigned_url.replace(0, 5, "https"); // https -> http
         std::cout << "Presigned URL " << presigned_url << std::endl;
         // throw std::runtime_error("break");
     }
@@ -60,7 +60,10 @@ namespace s3benchmark {
         req->SetHeaderValue("Range", range.as_http_header());
         auto start = clock::now();
         // TODO: Test using aws http range
-        c->MakeRequest(req);
+        auto res = c->MakeRequest(req);
+        if (res->HasClientError()) {
+            std::cout << res->GetClientErrorMessage() << std::endl;
+        }
         auto end = clock::now();
         return std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     }
