@@ -24,7 +24,7 @@ namespace s3benchmark {
             : config(config)
             , client(Aws::S3::S3Client(config.aws_config()))
             , presigned_url(this->client.GeneratePresignedUrl(config.bucket_name, config.object_name, Aws::Http::HttpMethod::HTTP_GET, URL_TIMEOUT_S)) {
-        // this->presigned_url.replace(0, 5, "https"); // https -> http
+        // this->presigned_url.replace(0, 5, "http"); // https -> http
         std::cout << "Presigned URL " << presigned_url << std::endl;
         // throw std::runtime_error("break");
     }
@@ -142,7 +142,6 @@ namespace s3benchmark {
 
     void Benchmark::run_full_benchmark(Logger &logger) const {
         // TODO: consider config.payloads_step
-        curl_global_init(CURL_GLOBAL_SSL);
         auto params = RunParameters{ config.samples, 1, 0, this->fetch_object_size() };
         for (size_t payload_size = config.payloads_min; payload_size <= config.payloads_max; payload_size *= 2) {
             params.payload_size = payload_size;
