@@ -21,9 +21,9 @@ namespace s3benchmark::cli {
             DEFINE_bool(threads_static, false,
             "If true, interprete threads-min and threads-max as static counts instead of multiples of the hardware thread count.\n"
             "It's advised to explicitly set threads-min and threads-max if this option is given.");
-            DEFINE_double(threads_min, 64, // 1
+            DEFINE_double(threads_min, 16, // 1
             "The minimum number of threads to use when fetching objects from S3 as a multiple of the hardware thread count.");
-            DEFINE_double(threads_max, 64, // 2
+            DEFINE_double(threads_max, 32, // 2
             "The maximum number of threads to use when fetching objects from S3 as a multiple of the hardware thread count.");
             DEFINE_double(threads_step, 2,
             "What increase in thread count per benchmark run is. Positive means multiplicative, negative means additive.");

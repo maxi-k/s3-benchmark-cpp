@@ -48,7 +48,7 @@ namespace s3benchmark {
         return len;
     }
 
-    latency_t Benchmark::fetch_range(const ByteRange &range, char* outbuf, size_t bufsize) const {
+    latency_t Benchmark::fetch_range(const std::shared_ptr<Aws::Http::HttpClient> c, const ByteRange &range, char* outbuf, size_t bufsize) const {
         // Put data into outbuf
         auto req = Aws::Http::CreateHttpRequest(this->presigned_url, Aws::Http::HttpMethod::HTTP_GET, [&outbuf, &bufsize]() {
             // Faster method than stringstream?
@@ -60,6 +60,7 @@ namespace s3benchmark {
         req->SetHeaderValue("Range", range.as_http_header());
         auto start = clock::now();
         // TODO: Test using aws http range
+        c->MakeRequest(req);
         auto end = clock::now();
         return std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     }
@@ -112,19 +113,8 @@ namespace s3benchmark {
         for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
            threads.emplace_back([this, t_id, &outbuf, &request_ranges, &params, &results, &do_start, &start_time]() {
                auto buf = outbuf.data() + t_id * params.payload_size;
-               auto range = random_range_in(params.payload_size, params.content_size);
                auto idx_start = params.sample_count * t_id;
-               CURL* thread_curl = curl_easy_init();
-               curl_easy_setopt(thread_curl, CURLOPT_HTTPGET, 1L);
-               curl_easy_setopt(thread_curl, CURLOPT_URL, this->presigned_url.c_str());
-               curl_easy_setopt(thread_curl, CURLOPT_WRITEDATA, buf);
-               curl_easy_setopt(thread_curl, CURLOPT_WRITEFUNCTION, Benchmark::fetch_url_curl_callback);
-               curl_easy_setopt(thread_curl, CURLOPT_TIMEOUT_MS, CURL_TIMEOUT_MS);
-               curl_easy_setopt(thread_curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-               if (!thread_curl) {
-                   throw std::runtime_error("Could not initialize curl client.");
-               }
-
+               auto http_client = Aws::Http::CreateHttpClient(this->config.aws_config());
                if (t_id != params.thread_count - 1) {
                    while (!do_start) { } // wait until all threads are started
                } else {
@@ -132,9 +122,8 @@ namespace s3benchmark {
                    start_time = clock::now();
                }
                for (unsigned i = 0; i < params.sample_count; ++i) {
-                   this->fetch_url_curl(thread_curl, request_ranges[idx_start + i], &results[idx_start + i], buf);
+                   this->fetch_range(http_client, request_ranges.at(idx_start + i), buf, params.payload_size);
                }
-               curl_easy_cleanup(thread_curl);
            });
         }
 

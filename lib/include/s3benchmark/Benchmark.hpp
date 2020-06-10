@@ -8,6 +8,8 @@
 #include <chrono>
 #include <ratio>
 #include <aws/core/Aws.h>
+#include <aws/core/http/HttpClient.h>
+#include <aws/core/client/AWSClient.h>
 #include <aws/s3/S3Client.h>
 #include "Config.hpp"
 #include "Logger.hpp"
@@ -33,7 +35,8 @@ namespace s3benchmark {
 
         void list_buckets() const;
         [[nodiscard]] size_t fetch_object_size() const;
-        [[nodiscard]] latency_t fetch_range(const ByteRange &range, char* outbuf, size_t bufsize) const;
+        latency_t fetch_range(const std::shared_ptr<Aws::Http::HttpClient> client, const ByteRange &range, char* outbuf, size_t bufsize) const;
+
 
         [[nodiscard]] static ByteRange random_range_in(size_t size, size_t max_value) ;
         [[nodiscard]] RunResults do_run(RunParameters &params) const;
