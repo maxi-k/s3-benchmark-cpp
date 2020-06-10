@@ -24,7 +24,7 @@ namespace s3benchmark {
         Aws::S3::S3Client client;
 
         static const size_t URL_TIMEOUT_S = 1000;
-        static const size_t CURL_TIMEOUT_MS = 18000;
+        static const size_t CURL_TIMEOUT_S = 3 * 60;
         Aws::String presigned_url;
 
         static size_t fetch_url_curl_callback(char *body, size_t size_mult, size_t nmemb, void *userdata);

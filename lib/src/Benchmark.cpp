@@ -115,9 +115,30 @@ namespace s3benchmark {
         std::vector<std::thread> threads;
         for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
            threads.emplace_back([this, t_id, &outbuf, &request_ranges, &params, &results, &do_start, &start_time]() {
+               auto http_client = Aws::Http::CreateHttpClient(this->config.aws_config());
                auto buf = outbuf.data() + t_id * params.payload_size;
                auto idx_start = params.sample_count * t_id;
-               auto http_client = Aws::Http::CreateHttpClient(this->config.aws_config());
+               // ----
+               // -- using the aws http client
+               // -- using libCURL directly
+               // CURL* thread_curl = curl_easy_init();
+               // curl_easy_setopt(thread_curl, CURLOPT_HTTPGET, 1L);
+               // curl_easy_setopt(thread_curl, CURLOPT_URL, this->presigned_url.c_str());
+               // curl_easy_setopt(thread_curl, CURLOPT_WRITEDATA, buf);
+               // curl_easy_setopt(thread_curl, CURLOPT_WRITEFUNCTION, Benchmark::fetch_url_curl_callback);
+               // curl_easy_setopt(thread_curl, CURLOPT_TIMEOUT, CURL_TIMEOUT_S);
+               // curl_easy_setopt(thread_curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+               // curl_easy_setopt(thread_curl, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);
+               // curl_easy_setopt(thread_curl, CURLOPT_MAXCONNECTS, params.thread_count);
+               // curl_easy_setopt(thread_curl, CURLOPT_TCP_KEEPALIVE, 1L);
+               // /* keep-alive idle time to 120 seconds */
+               // curl_easy_setopt(thread_curl, CURLOPT_TCP_KEEPIDLE, 120L);
+               // /* interval time between keep-alive probes: 60 seconds */
+               // curl_easy_setopt(thread_curl, CURLOPT_TCP_KEEPINTVL, 60L);
+               // if (!thread_curl) {
+               //     throw std::runtime_error("Could not initialize libcurl.");
+               // }
+               // ----
                if (t_id != params.thread_count - 1) {
                    while (!do_start) { } // wait until all threads are started
                } else {
@@ -125,7 +146,13 @@ namespace s3benchmark {
                    start_time = clock::now();
                }
                for (unsigned i = 0; i < params.sample_count; ++i) {
+                   // ----
+                   // -- using the aws http client
                    this->fetch_range(http_client, request_ranges.at(idx_start + i), buf, params.payload_size);
+                   // ----
+                   // -- using libcurl
+                   // this->fetch_url_curl(thread_curl, request_ranges.at(idx_start + i), &results.at(idx_start + i), buf);
+                   // ----
                }
            });
         }
