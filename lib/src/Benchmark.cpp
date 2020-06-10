@@ -24,6 +24,9 @@ namespace s3benchmark {
             : config(config)
             , client(Aws::S3::S3Client(config.aws_config()))
             , presigned_url(this->client.GeneratePresignedUrl(config.bucket_name, config.object_name, Aws::Http::HttpMethod::HTTP_GET, URL_TIMEOUT_S)) {
+        this->presigned_url.replace(0, 5, "http");
+        std::cout << "Presigned URL " << presigned_url << std::endl;
+        // throw std::runtime_error("break");
     }
 
     void Benchmark::list_buckets() const {
@@ -46,20 +49,17 @@ namespace s3benchmark {
     }
 
     latency_t Benchmark::fetch_range(const ByteRange &range, char* outbuf, size_t bufsize) const {
-        auto req = Aws::S3::Model::GetObjectRequest()
-                .WithBucket(config.bucket_name)
-                .WithKey(config.object_name)
-                .WithRange(range.as_http_header());
         // Put data into outbuf
-        req.SetResponseStreamFactory([&outbuf, &bufsize]() {
+        auto req = Aws::Http::CreateHttpRequest(this->presigned_url, Aws::Http::HttpMethod::HTTP_GET, [&outbuf, &bufsize]() {
             // Faster method than stringstream?
             // auto stream = Aws::New<Aws::StringStream>("S3Client");
             // stream->rdbuf()->pubsetbuf(outbuf, bufsize);
             // return stream;
             return Aws::New<Aws::FStream>("S3Client", "/dev/null", std::ios_base::out);
         });
+        req->SetHeaderValue("Range", range.as_http_header());
         auto start = clock::now();
-        client.GetObject(req);
+        // TODO: Test using aws http range
         auto end = clock::now();
         return std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     }
@@ -77,17 +77,12 @@ namespace s3benchmark {
         auto output = static_cast<char*>(userdata);
         // payload size is always the same, just copy memcpy
         // TODO: consider just forgoing this step, not relevant for benchmark.
-        memcpy(output, body, size);
+        // memcpy(output, body, size);
         return size;
     }
 
     void Benchmark::fetch_url_curl(CURL *curl, ByteRange &range, latency_t *latency_output, char* content_output) const {
         CURLcode res;
-        curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
-        curl_easy_setopt(curl, CURLOPT_URL, this->presigned_url.c_str());
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, content_output);
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, Benchmark::fetch_url_curl_callback);
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, CURL_TIMEOUT_MS);
         curl_easy_setopt(curl, CURLOPT_RANGE, range.as_string().c_str());
         auto start = clock::now();
         res = curl_easy_perform(curl);
@@ -120,6 +115,12 @@ namespace s3benchmark {
                auto range = random_range_in(params.payload_size, params.content_size);
                auto idx_start = params.sample_count * t_id;
                CURL* thread_curl = curl_easy_init();
+               curl_easy_setopt(thread_curl, CURLOPT_HTTPGET, 1L);
+               curl_easy_setopt(thread_curl, CURLOPT_URL, this->presigned_url.c_str());
+               curl_easy_setopt(thread_curl, CURLOPT_WRITEDATA, buf);
+               curl_easy_setopt(thread_curl, CURLOPT_WRITEFUNCTION, Benchmark::fetch_url_curl_callback);
+               curl_easy_setopt(thread_curl, CURLOPT_TIMEOUT_MS, CURL_TIMEOUT_MS);
+               curl_easy_setopt(thread_curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
                if (!thread_curl) {
                    throw std::runtime_error("Could not initialize curl client.");
                }
@@ -149,6 +150,7 @@ namespace s3benchmark {
 
     void Benchmark::run_full_benchmark(Logger &logger) const {
         // TODO: consider config.payloads_step
+        curl_global_init(CURL_GLOBAL_SSL);
         auto params = RunParameters{ config.samples, 1, 0, this->fetch_object_size() };
         for (size_t payload_size = config.payloads_min; payload_size <= config.payloads_max; payload_size *= 2) {
             params.payload_size = payload_size;
