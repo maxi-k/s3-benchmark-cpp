@@ -5,13 +5,16 @@
 #ifndef _S3BENCHMARK_HTTPCLIENT_HPP
 #define _S3BENCHMARK_HTTPCLIENT_HPP
 
+#include <netdb.h>
 #include <string>
 #include <functional>
+#include "Config.hpp"
 
 namespace s3benchmark {
 
     class HttpClient {
-        using response_handler_t = std::function<void(/* TODO */)>;
+        using response_handler_t = std::function<void(size_t, char*)>;
+
         size_t request_header_size;
         char* request_headers;
         size_t dynamic_header_index;
@@ -29,11 +32,15 @@ namespace s3benchmark {
 
         [[nodiscard]] size_t header_size() const;
 
-        void open_connection(const std::string &url);
+        [[nodiscard]] size_t dynamic_header_size() const;
 
-        void execute_request(const size_t &excpected_payload_length) const;
+        void open_connection(const hostent* host);
+
+        void execute_request(const size_t &buffer_size, char* recv_buffer) const;
 
         void close_connection();
+
+        static hostent* lookup_host(const std::string &url);
     };
 
 }  // namespace s3benchmark

@@ -57,14 +57,13 @@ namespace s3benchmark {
 
     void Config::sanitize_client_config() {
         this->client_config.region = region;
-        this->client_config.httpRequestTimeoutMs = 3 * units::ms_per_min;
-        this->client_config.connectTimeoutMs = 3 * units::ms_per_min;
-        this->client_config.requestTimeoutMs = 3 * units::ms_per_min;
+        this->client_config.httpRequestTimeoutMs = REQUEST_TIMEOUT_MS;
+        this->client_config.connectTimeoutMs = REQUEST_TIMEOUT_MS;
+        this->client_config.requestTimeoutMs = REQUEST_TIMEOUT_MS;
         this->client_config.maxConnections = std::abs(static_cast<long>(this->threads_max));
         this->client_config.scheme = Aws::Http::Scheme::HTTP;
         this->client_config.verifySSL = false;
         this->client_config.enableTcpKeepAlive = true;
-        // this->client_config.tcpKeepAliveIntervalMs = 5000;
     }
 
     EC2Config::EC2Config() {

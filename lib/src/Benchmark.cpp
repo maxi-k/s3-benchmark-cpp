@@ -110,33 +110,56 @@ namespace s3benchmark {
         clock::time_point start_time;
         bool do_start = false;
         // Allocate memory for the results
-        std::vector<char> outbuf(params.thread_count * params.payload_size);
+        size_t http_response_size = params.payload_size + (20ul << 10ul); // + http header est. 20kb
+        std::vector<char> outbuf(params.thread_count * http_response_size);
         std::vector<latency_t> results(overall_sample_count);
-        // Create a list for the threads, start them
-        std::vector<std::thread> threads;
-        // Shared header string
-        auto shared_http_header = "GET " + this->presigned_url + "\n" +
-                "Host: " + this->config.bucket_name + ".s3.amazonaws.com" + "\n";
+
+        // Create a Shared header string
+        // TODO: dynamic substring after hostname
+        auto shared_http_header = "GET " + this->presigned_url.substr(54) + " HTTP/1.1\r\n" +
+                "Host: " + this->config.bucket_name + ".s3.eu-central-1.amazonaws.com\r\n" +
+                "Connection: keep-alive\r\n" +
+                "Range: ";
         auto shared_header_length = shared_http_header.length();
         auto max_strlen_range = ByteRange{params.content_size, params.content_size};
-        auto base_http_header = shared_http_header +
-                "Range: " + max_strlen_range.as_http_header() + "\n";
-        for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
-           threads.emplace_back([this, t_id, &base_http_header, &shared_header_length, &outbuf, &request_ranges, &params, &results, &do_start, &start_time]() {
-               auto buf = outbuf.data() + t_id * params.payload_size;
-               auto idx_start = params.sample_count * t_id;
-               auto http_client = HttpClient(base_http_header, shared_header_length, [](){});
-               if (t_id != params.thread_count - 1) {
-                   while (!do_start) { } // wait until all threads are started
-               } else {
-                   do_start = true; // the last started thread sets the start time
-                   start_time = clock::now();
-               }
+        auto base_http_header = shared_http_header + max_strlen_range.as_http_header() + "\r\n\r\n";
+        auto host_def = HttpClient::lookup_host(this->config.bucket_name + ".s3.amazonaws.com");
 
-               http_client.open_connection(this->config.bucket_name + ".s3.amazonaws.com");
+        // Create a list for the threads, start them
+        std::vector<std::thread> threads;
+        do_start = true; // the last started thread sets the start time
+        start_time = clock::now();
+        for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
+           threads.emplace_back([this, t_id, &base_http_header, &shared_header_length, &host_def, &http_response_size, &outbuf, &request_ranges, &params, &results, &do_start, &start_time]() {
+               auto buf = outbuf.data() + t_id * http_response_size;
+               auto idx_start = params.sample_count * t_id;
+               unsigned bytes_recv = 0;
+               size_t cnt = 0;
+               auto noop_callback = [&cnt, &bytes_recv, &t_id](size_t recv_length, char* buf){
+                   // std::cout << "Received " << recv_length << " bytes of data on thread " << t_id << std::endl;
+                   bytes_recv += recv_length;
+                   ++cnt;
+               };
+               auto http_client = HttpClient(base_http_header, shared_header_length, noop_callback);
+               http_client.open_connection(host_def);
+
+               // if (t_id != params.thread_count - 1) {
+               //     while (!do_start) { } // wait until all threads are started
+               // } else {
+               //     do_start = true; // the last started thread sets the start time
+               //     start_time = clock::now();
+               // }
+               auto dyn_length = http_client.dynamic_header_size();
                for (unsigned i = 0; i < params.sample_count; ++i) {
-                    http_client.execute_request(params.payload_size + 100); // payload + header
+                   auto range_str = request_ranges[idx_start + i].as_http_header() + "\r\n\n\n\n\n\n\n";
+                   memcpy(http_client.dynamic_header(), range_str.c_str(), dyn_length);
+                   // TODO: fix start/end time for duration
+                   auto t_start = clock::now();
+                   http_client.execute_request(http_response_size, buf); // payload + header
+                   auto t_end = clock::now();
+                   results[idx_start + i] = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start);
                }
+               std::cout << "received bytes for thread" << t_id << " is " << bytes_recv << "\t\t in chunks: \t" << cnt << std::endl;
            });
         }
 

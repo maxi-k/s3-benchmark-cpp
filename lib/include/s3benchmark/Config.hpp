@@ -51,6 +51,7 @@ namespace s3benchmark {
         inline const static char* DEFAULT_REGION = "eu-central-1";
         inline const static char* DEFAULT_BUCKET_NAME = "masters-thesis-mk";
         inline const static char* DEFAULT_OBJECT_NAME = "benchmark/largefile.bin";
+        inline const static size_t REQUEST_TIMEOUT_MS = 3 * units::ms_per_min;
 
         explicit Config(ConfigParameters &&config);
 

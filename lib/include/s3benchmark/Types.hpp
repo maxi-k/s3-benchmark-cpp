@@ -14,6 +14,8 @@
 
 namespace s3benchmark {
     using latency_t = std::chrono::duration<size_t, std::ratio<1, 1000>>;
+    using clock = std::chrono::steady_clock;
+
     struct Latency {
         latency_t first_byte;
         latency_t last_byte;
