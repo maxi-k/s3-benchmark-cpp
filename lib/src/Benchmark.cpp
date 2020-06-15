@@ -158,8 +158,9 @@ namespace s3benchmark {
                    http_client.execute_request(http_response_size, buf); // payload + header
                    auto t_end = clock::now();
                    results[idx_start + i] = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start);
+                   // std::cout << "Done with sample " << i << " for thread " << t_id << std::endl;
                }
-               std::cout << "received bytes for thread" << t_id << " is " << bytes_recv << "\t\t in chunks: \t" << cnt << std::endl;
+               // std::cout << "received bytes for thread" << t_id << " is " << bytes_recv << "\t\t in chunks: \t" << cnt << std::endl;
            });
         }
 
