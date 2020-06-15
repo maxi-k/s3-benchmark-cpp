@@ -17,6 +17,7 @@
 
 #include "s3benchmark/Config.hpp"
 #include "s3benchmark/Types.hpp"
+#include "s3benchmark/HttpClient.hpp"
 
 namespace s3benchmark {
 
@@ -113,46 +114,28 @@ namespace s3benchmark {
         std::vector<latency_t> results(overall_sample_count);
         // Create a list for the threads, start them
         std::vector<std::thread> threads;
+        // Shared header string
+        auto shared_http_header = "GET " + this->presigned_url + "\n" +
+                "Host: " + this->config.bucket_name + ".s3.amazonaws.com" + "\n";
+        auto shared_header_length = shared_http_header.length();
+        auto max_strlen_range = ByteRange{params.content_size, params.content_size};
+        auto base_http_header = shared_http_header +
+                "Range: " + max_strlen_range.as_http_header() + "\n";
         for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
-           threads.emplace_back([this, t_id, &outbuf, &request_ranges, &params, &results, &do_start, &start_time]() {
-               auto http_client = Aws::Http::CreateHttpClient(this->config.aws_config());
+           threads.emplace_back([this, t_id, &base_http_header, &shared_header_length, &outbuf, &request_ranges, &params, &results, &do_start, &start_time]() {
                auto buf = outbuf.data() + t_id * params.payload_size;
                auto idx_start = params.sample_count * t_id;
-               // ----
-               // -- using the aws http client
-               // -- using libCURL directly
-               // CURL* thread_curl = curl_easy_init();
-               // curl_easy_setopt(thread_curl, CURLOPT_HTTPGET, 1L);
-               // curl_easy_setopt(thread_curl, CURLOPT_URL, this->presigned_url.c_str());
-               // curl_easy_setopt(thread_curl, CURLOPT_WRITEDATA, buf);
-               // curl_easy_setopt(thread_curl, CURLOPT_WRITEFUNCTION, Benchmark::fetch_url_curl_callback);
-               // curl_easy_setopt(thread_curl, CURLOPT_TIMEOUT, CURL_TIMEOUT_S);
-               // curl_easy_setopt(thread_curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-               // curl_easy_setopt(thread_curl, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);
-               // curl_easy_setopt(thread_curl, CURLOPT_MAXCONNECTS, params.thread_count);
-               // curl_easy_setopt(thread_curl, CURLOPT_TCP_KEEPALIVE, 1L);
-               // /* keep-alive idle time to 120 seconds */
-               // curl_easy_setopt(thread_curl, CURLOPT_TCP_KEEPIDLE, 120L);
-               // /* interval time between keep-alive probes: 60 seconds */
-               // curl_easy_setopt(thread_curl, CURLOPT_TCP_KEEPINTVL, 60L);
-               // if (!thread_curl) {
-               //     throw std::runtime_error("Could not initialize libcurl.");
-               // }
-               // ----
+               auto http_client = HttpClient(base_http_header, shared_header_length, [](){});
                if (t_id != params.thread_count - 1) {
                    while (!do_start) { } // wait until all threads are started
                } else {
                    do_start = true; // the last started thread sets the start time
                    start_time = clock::now();
                }
+
+               http_client.open_connection(this->config.bucket_name + ".s3.amazonaws.com");
                for (unsigned i = 0; i < params.sample_count; ++i) {
-                   // ----
-                   // -- using the aws http client
-                   this->fetch_range(http_client, request_ranges.at(idx_start + i), buf, params.payload_size);
-                   // ----
-                   // -- using libcurl
-                   // this->fetch_url_curl(thread_curl, request_ranges.at(idx_start + i), &results.at(idx_start + i), buf);
-                   // ----
+                    http_client.execute_request(params.payload_size + 100); // payload + header
                }
            });
         }
