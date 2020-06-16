@@ -26,19 +26,15 @@ namespace s3benchmark {
         static const size_t CURL_TIMEOUT_S = 3 * 60;
         Aws::String presigned_url;
 
-        static size_t fetch_url_curl_callback(char *body, size_t size_mult, size_t nmemb, void *userdata);
-        void fetch_url_curl(CURL *curl, ByteRange &range, latency_t* latency_output, char* content_output) const;
+        TestEnv prepare_run(const RunParameters &params) const;
 
     public:
         explicit Benchmark(const Config &config);
 
-        void list_buckets() const;
         [[nodiscard]] size_t fetch_object_size() const;
-        latency_t fetch_range(const std::shared_ptr<Aws::Http::HttpClient> client, const ByteRange &range, char* outbuf, size_t bufsize) const;
-
 
         [[nodiscard]] static ByteRange random_range_in(size_t size, size_t max_value) ;
-        [[nodiscard]] RunResults do_run(RunParameters &params) const;
+        [[nodiscard]] RunResults do_run(const RunParameters &params) const;
         void run_full_benchmark(Logger &logger) const;
     };
 }

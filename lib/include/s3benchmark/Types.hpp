@@ -5,20 +5,25 @@
 #ifndef _S3BENCHMARK_TYPES_HPP
 #define _S3BENCHMARK_TYPES_HPP
 
+#include <sys/select.h>
 #include <chrono>
 #include <ratio>
 #include <vector>
 #include <string>
 #include <sstream>
+#include <netdb.h>
+#include <unistd.h>
 #include "Util.hpp"
 
 namespace s3benchmark {
-    using latency_t = std::chrono::duration<size_t, std::ratio<1, 1000>>;
     using clock = std::chrono::steady_clock;
+    using timestamp_t = clock::time_point;
+    using latency_t = std::chrono::duration<size_t, std::ratio<1, 1000>>;
 
-    struct Latency {
-        latency_t first_byte;
-        latency_t last_byte;
+    struct ReadStats {
+        size_t chunk_count;
+        size_t payload_size;
+        latency_t read_duration;
     };
 
     struct ByteRange {
@@ -47,12 +52,6 @@ namespace s3benchmark {
         size_t thread_count;
         size_t payload_size;
         size_t content_size;
-    };
-
-    struct RunDataPoint {
-        latency_t request_time;
-        size_t overall_size;
-        size_t chunk_count;
     };
 
     struct RunResults {
@@ -104,6 +103,34 @@ namespace s3benchmark {
             this->download_sum = samples_sum * params.payload_size;
             this->throughput_mbps = (download_sum * 1.0 / units::mib) / (duration.count() * 1.0 / units::ms_per_sec);
         }
+    };
+
+    struct Connection {
+        int socket;
+        timestamp_t last_write;
+        timestamp_t last_read;
+        inline bool is_open() const {
+            return socket != -1;
+        }
+        inline void close_connection() {
+            if (is_open()) {
+                close(this->socket);
+            }
+            this->socket = -1;
+        }
+    };
+
+    struct TestEnv {
+        std::vector<Connection> connections;
+        std::vector<std::string> requests;
+        hostent *remote_host;
+
+        int set_count;
+        fd_set send_set_all;
+        fd_set recv_set_all;
+
+        size_t executed_requests;
+        size_t received_responses;
     };
 }
 

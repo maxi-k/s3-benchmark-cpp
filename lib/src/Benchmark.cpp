@@ -6,6 +6,9 @@
 #include <aws/s3/model/GetObjectRequest.h>
 
 #include <sys/stat.h>
+#include <sys/select.h>
+#include <cerrno>
+
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -23,18 +26,11 @@ namespace s3benchmark {
 
     Benchmark::Benchmark(const Config &config)
             : config(config)
-            , client(Aws::S3::S3Client(config.aws_config()))
+            , client(config.aws_config())
             , presigned_url(this->client.GeneratePresignedUrl(config.bucket_name, config.object_name, Aws::Http::HttpMethod::HTTP_GET, URL_TIMEOUT_S)) {
         // this->presigned_url.replace(0, 5, "http"); // https -> http
         std::cout << "Presigned URL " << presigned_url << std::endl;
         // throw std::runtime_error("break");
-    }
-
-    void Benchmark::list_buckets() const {
-        auto resp = client.ListBuckets();
-        for (auto& bucket : resp.GetResult().GetBuckets()) {
-            std::cout << "Found bucket: " << bucket.GetName() << std::endl;
-        }
     }
 
     size_t Benchmark::fetch_object_size() const {
@@ -49,26 +45,6 @@ namespace s3benchmark {
         return len;
     }
 
-    latency_t Benchmark::fetch_range(const std::shared_ptr<Aws::Http::HttpClient> c, const ByteRange &range, char* outbuf, size_t bufsize) const {
-        // Put data into outbuf
-        auto req = Aws::Http::CreateHttpRequest(this->presigned_url, Aws::Http::HttpMethod::HTTP_GET, [&outbuf, &bufsize]() {
-            // Faster method than stringstream?
-            // auto stream = Aws::New<Aws::StringStream>("S3Client");
-            // stream->rdbuf()->pubsetbuf(outbuf, bufsize);
-            // return stream;
-            return Aws::New<Aws::FStream>("S3Client", "/dev/null", std::ios_base::out);
-        });
-        req->SetHeaderValue("Range", range.as_http_header());
-        auto start = clock::now();
-        // TODO: Test using aws http range
-        auto res = c->MakeRequest(req);
-        if (res->HasClientError()) {
-            std::cout << res->GetClientErrorMessage() << std::endl;
-        }
-        auto end = clock::now();
-        return std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    }
-
     ByteRange Benchmark::random_range_in(size_t size, size_t max_value) {
         if (size > max_value) {
             throw std::runtime_error("Cannot create byte range larger than max size.");
@@ -77,108 +53,125 @@ namespace s3benchmark {
         return { offset, offset + size };
     }
 
-    size_t Benchmark::fetch_url_curl_callback(char *body, size_t size_mult, size_t nmemb, void *userdata) {
-        auto size = size_mult * nmemb;
-        auto output = static_cast<char*>(userdata);
-        // payload size is always the same, just copy memcpy
-        // TODO: consider just forgoing this step, not relevant for benchmark.
-        // memcpy(output, body, size);
-        return size;
-    }
-
-    void Benchmark::fetch_url_curl(CURL *curl, ByteRange &range, latency_t *latency_output, char* content_output) const {
-        CURLcode res;
-        curl_easy_setopt(curl, CURLOPT_RANGE, range.as_string().c_str());
-        auto start = clock::now();
-        res = curl_easy_perform(curl);
-        auto end = clock::now(); // TODO: is this after whole body arrives or after header arrives? -> curl doc
-        if (res != 0) {
-            throw std::runtime_error("Failed fetching bucket result");
-        }
-        *latency_output = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    }
-
-    RunResults Benchmark::do_run(RunParameters &params) const {
+    TestEnv Benchmark::prepare_run(const RunParameters &params) const {
         auto overall_sample_count = params.sample_count * params.thread_count;
-        // Pre-generate request ranges
-        std::vector<ByteRange> request_ranges;
-        request_ranges.reserve(overall_sample_count);
-        for (int i = 0; i < overall_sample_count; ++i) {
-            request_ranges.push_back(random_range_in(params.payload_size, params.content_size));
-        }
-        // Allocate memory for the results
-        size_t http_response_size = params.payload_size + (20ul << 10ul); // + http header est. 20kb
-        std::vector<char> outbuf(params.thread_count * http_response_size);
-        std::vector<latency_t> latencies(overall_sample_count);
-        std::vector<size_t> chunk_counts(overall_sample_count);
-        std::vector<size_t> payload_sizes(overall_sample_count);
-        // Create a Shared header string
-        // TODO: dynamic substring after hostname
-        auto shared_http_header = "GET " + this->presigned_url.substr(54) + " HTTP/1.1\r\n" +
-                "Host: " + this->config.bucket_name + ".s3.eu-central-1.amazonaws.com\r\n" +
-                "Connection: keep-alive\r\n" +
-                "Range: ";
-        auto shared_header_length = shared_http_header.length();
-        auto max_strlen_range = ByteRange{params.content_size, params.content_size};
-        auto base_http_header = shared_http_header + max_strlen_range.as_http_header() + "\r\n\r\n";
+        // host definition
         auto host_def = HttpClient::lookup_host(this->config.bucket_name + ".s3.amazonaws.com");
-        // Add timing variables, create a list for the threads, start them
-        clock::time_point start_time;
-        bool do_start = false;
-        std::vector<std::thread> threads;
-        for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
-           threads.emplace_back([&, t_id]() {
-               auto buf = outbuf.data() + t_id * http_response_size;
-               auto idx_start = params.sample_count * t_id;
-               // Prepare http client and stat variables
-               unsigned bytes_recv = 0;
-               size_t chunk_cnt = 0;
-               auto noop_callback = [&chunk_cnt, &bytes_recv, &t_id](size_t recv_length, char* buf){
-                   // std::cout << "Received " << recv_length << " bytes of data on thread " << t_id << std::endl;
-                   bytes_recv += recv_length;
-                   ++chunk_cnt;
-               };
-               auto http_client = HttpClient(base_http_header, shared_header_length, noop_callback);
-               auto dyn_length = http_client.dynamic_header_size();
-               // wait until all threads are started, then start measuring time
-               if (t_id != params.thread_count - 1) {
-                   while (!do_start) { }
-               } else {
-                   do_start = true;
-                   start_time = clock::now();
-               }
-               // Run the samples
-               http_client.open_connection(host_def);
-               for (unsigned i = 0; i < params.sample_count; ++i) {
-                   // Open the socket connection
-                   auto idx = idx_start + i;
-                   // Prepare range
-                   auto range_str = request_ranges[idx].as_http_header() + "                ";
-                   memcpy(http_client.dynamic_header(), range_str.c_str(), dyn_length);
-                   // Execute request, measure time
-                   // TODO: fix timing for pipelined requests
-                   auto t_start = clock::now();
-                   http_client.send_msg(); // payload + header
-                   auto t_end = clock::now();
-                   // Fill result vectors, reset per-sample variables
-                   latencies[idx] = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start);
-               }
-               http_client.receive_msg(http_response_size, buf);
-               for (unsigned i = 0; i < params.sample_count; ++i) {
-                   auto idx = idx_start + i;
-                   chunk_counts[idx] = chunk_cnt;
-                   payload_sizes[idx] = bytes_recv;
-                   chunk_cnt = 0;
-                   bytes_recv = 0;
-               }
-               // std::cout << "received bytes for thread" << t_id << " is " << bytes_recv << "\t\t in chunks: \t" << cnt << std::endl;
-           });
+        // requests
+        // TODO: make more dynamic (substring, hostname)
+        auto shared_http_header = "GET " + this->presigned_url.substr(54) + " HTTP/1.1\r\n" +
+                                  "Host:  masters-thesis-mk.s3.eu-central-1.amazonaws.com\r\n" +
+                                  "Range: ";
+        auto shared_header_length = shared_http_header.length();
+        std::vector<std::string> requests;
+        requests.reserve(overall_sample_count);
+        for (int i = 0; i < overall_sample_count; ++i) {
+            auto range = random_range_in(params.payload_size, params.content_size);
+            requests.push_back(shared_http_header + range.as_http_header() + "\r\n\r\n");
+        }
+        // connections
+        std::vector<Connection> connections;
+        connections.reserve(params.thread_count); // TODO: does socket_count == thread_count make sense?
+        for (int i = 0; i < params.thread_count; ++i) {
+            connections.push_back(HttpClient::create_connection(host_def));
+        }
+        // Prepare POSIX file descriptor sets
+        fd_set send_set; FD_ZERO(&send_set);
+        fd_set recv_set; FD_ZERO(&recv_set);
+        for (auto &conn : connections) {
+            FD_SET(conn.socket, &send_set);
+            FD_SET(conn.socket, &recv_set);
         }
 
-        for (auto &thread : threads) {
-            thread.join();
+        return TestEnv{
+            connections,
+            requests,
+            host_def,
+            static_cast<int>(connections.size()),
+            send_set,
+            recv_set,
+            0,
+            0
+        };
+
+    }
+
+    RunResults Benchmark::do_run(const RunParameters &params) const {
+        auto overall_sample_count = params.sample_count * params.thread_count;
+        auto env = this->prepare_run(params);
+        // Allocate memory for the results
+        size_t http_response_size = params.payload_size + (1ul << 10ul); // + http header est. 1kb
+        std::vector<char> outbuf(params.thread_count * http_response_size);
+        std::vector<latency_t> latencies;
+        std::vector<size_t> chunk_counts(env.connections.size(), 0); // TODO: per query chunk counts instead of per socket
+        std::vector<size_t> payload_sizes(env.connections.size(), 0); // TODO: per query chunk sizes instead of per socket
+        // Initialize the 'chunk received' handler
+        std::string new_sample_start("HTTP/1.1 206 Partial Content");
+        HttpClient::response_handler_t handler([&](const Connection& conn, size_t recv_size, char* buf) {
+            if (recv_size < new_sample_start.size()) {
+                return;
+            }
+            // TODO: need to search the whole response for the search string; very slow. is there another way?
+            // (1) Idea: find Content-Length field in header and then skip that many bytes
+            auto buf_str = std::string(buf, recv_size);
+            env.received_responses = predicate::find_kmp(buf_str, new_sample_start);
+            // std::cout << "Received another " << occ << " responses, " << overall_sample_count - env.received_responses << " to go." << std::endl;
+        });
+        // Bookkeeping variables
+        fd_set send_set;
+        fd_set recv_set;
+        // Add timing variables, start test
+        clock::time_point start_time = clock::now();
+        loop:
+        while (env.executed_requests < overall_sample_count || env.received_responses < overall_sample_count) {
+            struct timeval timeout_def{  // TODO: read from config
+                10,
+                500
+            };
+            std::memcpy(&send_set, &env.send_set_all, sizeof(send_set));
+            std::memcpy(&recv_set, &env.recv_set_all, sizeof(recv_set));
+            auto select_res = select(env.set_count + 1, &recv_set, &send_set, nullptr, &timeout_def);
+
+            if (select_res < 0) {
+                auto err = errno;
+                std::cerr << "An error occured while polling on the sockets: " << err << std::endl;
+                // TODO: better error handling
+                throw std::runtime_error("select(2) error.");
+            }
+            if (select_res == 0) {
+                std::cout << "Timeout on polling;" << std::endl;
+                break;
+            }
+            for (auto &conn : env.connections) {
+                // Check available read sockets
+                if (FD_ISSET(conn.socket, &recv_set) && env.received_responses < overall_sample_count) {
+                    try {
+                        auto read_stats = HttpClient::receive_msg(conn, outbuf.size(), outbuf.data(), handler);
+                        FD_CLR(conn.socket, &recv_set);
+                        latencies.emplace_back(read_stats.read_duration);
+                        chunk_counts.emplace_back(read_stats.chunk_count);
+                        payload_sizes.emplace_back(read_stats.payload_size);
+                    } catch (std::runtime_error &e) {
+                        std::cerr << "Error while receiving message from the buffer, continuing...";
+                        goto loop;
+                    }
+                }
+                // Check available write sockets
+                if(FD_ISSET(conn.socket, &send_set) && env.executed_requests < overall_sample_count) {
+                    HttpClient::send_msg(conn, env.requests[env.executed_requests]);
+                    FD_CLR(conn.socket, &send_set);
+                    ++env.executed_requests;
+                    if (env.executed_requests == overall_sample_count) {
+                        std::cout << "Sent all requests!" << std::endl;
+                    }
+                }
+            }
         }
         clock::time_point end_time = clock::now();
+        for (auto &conn : env.connections) {
+            conn.close_connection();
+        }
+
         return RunResults{
             latencies,
             payload_sizes,

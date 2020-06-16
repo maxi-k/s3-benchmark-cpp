@@ -72,6 +72,66 @@ namespace s3benchmark {
         }
     }
 
+    namespace predicate {
+        inline bool starts_with(const char* s1, const char* s2) {
+            if (*s1 == '\0' || *s2 == '\0') return true;
+            while(*s1 == *s2) {
+                ++s1; ++s2;
+                if (*s1 == '\0' || *s2 == '\0') return true;
+            }
+            return false;
+        }
+
+        #include<iostream>
+#include<string>
+
+        inline int *pre_kmp(const std::string &pattern)
+        {
+            int size = pattern.size();
+            int *pie=new int [size];
+            pie[0] = 0;
+            int k=0;
+            for(int i=1;i<size;i++)
+            {
+                while(k>0 && pattern[k] != pattern[i] )
+                {
+                    k=pie[k-1];
+                }
+                if( pattern[k] == pattern[i] )
+                {
+                    k=k+1;
+                }
+                pie[i]=k;
+            }
+
+            return pie;
+        }
+
+        inline size_t find_kmp(const std::string &text, const std::string &pattern)
+        {
+            int* pie=pre_kmp(pattern);
+            int matched_pos = 0;
+            int matches = 0;
+            for(int current=0; current< text.length(); current++)
+            {
+                while (matched_pos > 0 && pattern[matched_pos] != text[current] )
+                    matched_pos = pie[matched_pos-1];
+
+                if(pattern[matched_pos] == text[current])
+                    matched_pos = matched_pos + 1;
+
+                if( matched_pos == (pattern.length()) )
+                {
+                    // std::cout << "Pattern occurs with shift " << current - (pattern.length() -1 );
+                    ++matches;
+                    matched_pos = pie[matched_pos-1];
+                }
+            }
+            return matches;
+        }
+
+    }
+
     namespace http {
         inline size_t curl_callback(char *body, size_t size_mult, size_t nmemb, void *userdata) {
             auto size = size_mult * nmemb;
