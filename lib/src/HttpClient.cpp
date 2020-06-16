@@ -19,7 +19,7 @@
 
 namespace s3benchmark {
 
-    const char HEADER_PADDING[] = "\r\n\r\n\0";
+    const char HEADER_PADDING[] = "\r\n\r\n";
     HttpClient::HttpClient(const std::string &initial_request_headers,
                            size_t dynamic_header_index,
                            const response_handler_t &response_handler)
@@ -124,22 +124,17 @@ namespace s3benchmark {
                     break;
                 } else if (recv_len == 0) {
                     //std::cout << "No more data to receive." << std::endl;
+                    if(recv_sum == 0) {
+                        std::cerr << "\n------------------- Did not receive any data from request on socket " << this->socket_descriptor << ": ----------------------" << std::endl;
+                        std::cerr << this->request_headers << std::endl;
+                        std::cerr << "-----------------------------------------------------------------------------------------------" << std::endl;
+                    }
                     break;
                 } else {
                     this->response_handler(recv_len, recv_buffer);
-                    // if(recv_sum == 0) {
-                    //     std::cout << "\n-------------------Received data start " << recv_len << ":----------------------" << std::endl;
-                    //     std::cout << "Sent the following request on socket " << this->socket_descriptor << std::endl;
-                    //     std::cout << this->request_headers << std::endl;
-                    //     std::cout << "\n--------------------------------------------------------------" << std::endl;
-                    //     std::cout << std::hex << recv_buffer << std::dec << std::endl;
-                    //     std::cout << "\n--------------------------------------------------------------" << std::endl;
-                    //     std::cout << "--------------------------------------------------------------" << std::endl;
-                    // }
-                    // std::cout << "recv_len " << recv_len << std::endl;
                     recv_sum += recv_len;
                 }
-            } while(recv_len > 0);  // Request done if less than buffer size was read
+            } while(recv_len > 0);
         } else {
             std::cerr << "Unknown events received from socket " << std::hex << poll_def.revents << std::dec << std::endl;
         // }

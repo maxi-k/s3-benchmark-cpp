@@ -10,15 +10,15 @@ namespace s3benchmark {
     CliLogger::CliLogger(std::ostream &output) : out(output) {}
 
     void CliLogger::print_run_header() const {
-        out << "                                                      +-----------------------------+--------------------+" << std::endl;
-        out << "                                                      |     Completion Time [ms]    |    Sample Count    |" << std::endl;
-        out << "+---------+----------------+-----------+--------------+-----------------------------+--------------------+" << std::endl;
-        out << "| Threads |     Throughput | Exec Time | Download Sum |  min   max   avg   overall  |  thread   overall  |" << std::endl;
-        out << "+---------+----------------+-----------+--------------+-----------------------------+--------------------+" << std::endl;
+        out << "                                                      +-----------------------------+-----------------------------+-----------------------------+--------------------+" << std::endl;
+        out << "                                                      |     Completion Time [ms]    |  TCP Packet Count / Sample  |   TCP Packet Size [bytes]   |    Sample Count    |" << std::endl;
+        out << "+---------+----------------+-----------+--------------+-----------------------------+-----------------------------+-----------------------------+--------------------+" << std::endl;
+        out << "| Threads |     Throughput | Exec Time | Download Sum |  min   max   avg   overall  |  min   max   avg   overall  |  min   max   avg   overall  |  thread   overall  |" << std::endl;
+        out << "+---------+----------------+-----------+--------------+-----------------------------+-----------------------------+-----------------------------+--------------------+" << std::endl;
     }
 
     void CliLogger::print_run_footer() const {
-        out << "+---------+----------------+-----------+--------------+-----------------------------+--------------------+" << std::endl;
+        out << "+---------+----------------+-----------+--------------+-----------------------------+-----------------------------+-----------------------------+--------------------+" << std::endl;
     }
 
     void CliLogger::print_run_stats(const RunStats &stats) const {
@@ -26,7 +26,9 @@ namespace s3benchmark {
             << format::string_format("| \033[1;31m%8.2f MiB/s\033[0m ", stats.throughput_mbps)
             << format::string_format("|\033[1m%8.2f s\033[0m ", stats.duration.count() * 1.0 / units::ms_per_sec)
             << format::string_format("|\033[1m%9.0f MiB\033[0m ", stats.download_sum * 1.0 / units::mib)
-            << format::string_format("|%5d %5d %5d %9d  ", stats.latency_min.count(), stats.latency_max.count(), stats.latency_avg.count(), stats.latency_sum.count())
+            << format::string_format("|%5d %5d %5d %9d  ", stats.latency.min.count(), stats.latency.max.count(), stats.latency.avg.count(), stats.latency.sum.count())
+            << format::string_format("|%5d %5d %5d %9d  ", stats.chunk_count.min, stats.chunk_count.max, stats.chunk_count.avg, stats.chunk_count.sum)
+            << format::string_format("|%5d %5d %5d %9d  ", stats.payload_size.min, stats.payload_size.max, stats.payload_size.avg, stats.payload_size.sum)
             << format::string_format("|%8d %9d  |", stats.sample_count, stats.samples_sum)
             << std::endl;
     }
