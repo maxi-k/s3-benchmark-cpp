@@ -140,8 +140,6 @@ namespace s3benchmark {
                };
                auto http_client = HttpClient(base_http_header, shared_header_length, noop_callback);
                auto dyn_length = http_client.dynamic_header_size();
-               // Open the socket connection
-               http_client.open_connection(host_def);
                // wait until all threads are started, then start measuring time
                if (t_id != params.thread_count - 1) {
                    while (!do_start) { }
@@ -150,17 +148,24 @@ namespace s3benchmark {
                    start_time = clock::now();
                }
                // Run the samples
+               http_client.open_connection(host_def);
                for (unsigned i = 0; i < params.sample_count; ++i) {
+                   // Open the socket connection
                    auto idx = idx_start + i;
                    // Prepare range
                    auto range_str = request_ranges[idx].as_http_header() + "                ";
                    memcpy(http_client.dynamic_header(), range_str.c_str(), dyn_length);
                    // Execute request, measure time
+                   // TODO: fix timing for pipelined requests
                    auto t_start = clock::now();
-                   http_client.execute_request(http_response_size, buf); // payload + header
+                   http_client.send_msg(); // payload + header
                    auto t_end = clock::now();
                    // Fill result vectors, reset per-sample variables
                    latencies[idx] = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start);
+               }
+               http_client.receive_msg(http_response_size, buf);
+               for (unsigned i = 0; i < params.sample_count; ++i) {
+                   auto idx = idx_start + i;
                    chunk_counts[idx] = chunk_cnt;
                    payload_sizes[idx] = bytes_recv;
                    chunk_cnt = 0;

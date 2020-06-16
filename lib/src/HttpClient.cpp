@@ -55,6 +55,7 @@ namespace s3benchmark {
         using sock_addr = struct sockaddr;
         using inet_addr = struct sockaddr_in;
         // Initialize socket and address struct
+        this->close_connection();
         int fd = socket(AF_INET, SOCK_STREAM, 0);
         inet_addr destination;
         memset(&destination, 0, sizeof(inet_addr));
@@ -76,14 +77,24 @@ namespace s3benchmark {
         this->socket_descriptor = fd;
     }
 
-    void HttpClient::execute_request(const size_t &buffer_size, char* recv_buffer) const {
+    void HttpClient::send_msg() const {
         if (socket_descriptor == -1) {
             throw std::runtime_error("Call open_connection to initialize the connection first.");
         }
         // TODO: use send fn w/ flags arg instead, search for flags w/ best efficiency
         // std::cout << "Sending the following request on socket " << this->socket_descriptor << std::endl;
         // std::cout << this->request_headers << std::endl;
-        send(this->socket_descriptor, this->request_headers, this->request_header_size + sizeof(HEADER_PADDING), 0);
+        send(this->socket_descriptor, this->request_headers, this->request_header_size + sizeof(HEADER_PADDING) - 1, 0);
+    }
+
+    void HttpClient::receive_msg(const size_t &buffer_size, char* recv_buffer) const {
+        if (socket_descriptor == -1) {
+            throw std::runtime_error("Call open_connection to initialize the connection first.");
+        }
+        // TODO: use send fn w/ flags arg instead, search for flags w/ best efficiency
+        // std::cout << "Sending the following request on socket " << this->socket_descriptor << std::endl;
+        // std::cout << this->request_headers << std::endl;
+        send(this->socket_descriptor, this->request_headers, this->request_header_size + sizeof(HEADER_PADDING) - 1, 0);
        //  while(true) {
         auto poll_def = pollfd{
                 this->socket_descriptor,
@@ -124,15 +135,15 @@ namespace s3benchmark {
                     break;
                 } else if (recv_len == 0) {
                     //std::cout << "No more data to receive." << std::endl;
-                    if(recv_sum == 0) {
+                    if (recv_sum == 0) {
                         std::cerr << "\n------------------- Did not receive any data from request on socket " << this->socket_descriptor << ": ----------------------" << std::endl;
                         std::cerr << this->request_headers << std::endl;
                         std::cerr << "-----------------------------------------------------------------------------------------------" << std::endl;
                     }
                     break;
                 } else {
-                    this->response_handler(recv_len, recv_buffer);
                     recv_sum += recv_len;
+                    this->response_handler(recv_len, recv_buffer);
                 }
             } while(recv_len > 0);
         } else {
@@ -145,6 +156,7 @@ namespace s3benchmark {
         if (socket_descriptor != -1) {
             // std::cout << "Closing connection for socket " << socket_descriptor << std::endl;
             close(socket_descriptor);
+            socket_descriptor = -1;
         }
     }
 

@@ -36,7 +36,8 @@ namespace s3benchmark {
 
         void open_connection(const hostent* host);
 
-        void execute_request(const size_t &buffer_size, char* recv_buffer) const;
+        void send_msg() const;
+        void receive_msg(const size_t &buffer_size, char* recv_buffer) const;
 
         void close_connection();
 
