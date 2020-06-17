@@ -97,29 +97,63 @@ namespace s3benchmark {
         auto env = this->prepare_run(params);
         // Allocate memory for the results
         size_t http_response_size = params.payload_size + (1ul << 10ul); // + http header est. 1kb
-        std::vector<char> outbuf(overall_sample_count * http_response_size);
-        std::vector<latency_t> latencies;
-        std::vector<size_t> chunk_counts(env.connections.size(), 0); // TODO: per query chunk counts instead of per socket
-        std::vector<size_t> payload_sizes(env.connections.size(), 0); // TODO: per query chunk sizes instead of per socket
         // Initialize the 'chunk received' handler
-        HttpClient::response_handler_t handler([&](const Connection& conn, size_t recv_size, char* buf) {
-            // TODO: need to search the whole response for the search string; very slow. is there another way?
-            // (1) Idea: find Content-Length field in header and then skip that many bytes
-            // TODO: store next_pos in map { conn -> pos } and pass it as start_pos arg
-            auto&& [next_pos, occ] = http::skim_http_data(buf, recv_size - 1, 0);
-            if (occ > 0) {
-                env.received_responses += occ;
-                // if (recv_size >= new_sample_start.size() && predicate::starts_with(new_sample_start.c_str(), buf)) {
-                std::cout << "Received another " << occ << " responses, "
-                          << overall_sample_count - env.received_responses << " to go." << std::endl;
-            }
-        });
+        struct thread_env {
+            std::vector<latency_t> latencies;
+            std::vector<size_t> chunk_counts;
+            std::vector<size_t> payload_sizes;
+        };
+        // Start worker threads
+        std::vector<std::thread> threads;
+        std::mutex thread_env_mutex;
+        std::vector<thread_env*> thread_envs;
+        std::vector<int> workloads(env.connections.size(), 0);
+        for (size_t i = 0; i < env.connections.size(); ++i) {
+            thread_envs.push_back(new thread_env{});
+            threads.emplace_back([&, i]() {
+                auto conn = env.connections[i];
+                auto id = conn.id;
+                std::vector<char> outbuf(2 * http_response_size);
+                HttpClient::response_handler_t handler([&](const Connection& conn, size_t recv_size, char* buf) {
+                    // TODO: need to search the whole response for the search string; very slow. is there another way?
+                    // (1) Idea: find Content-Length field in header and then skip that many bytes
+                    // TODO: store next_pos in map { conn -> pos } and pass it as start_pos arg
+                    auto&& [next_pos, occ] = http::skim_http_data(buf, recv_size - 1, 0);
+                    if (occ > 0) {
+                        while (occ != 0) {
+                            ++env.received_responses;
+                            --occ;
+                        }
+                        // if (recv_size >= new_sample_start.size() && predicate::starts_with(new_sample_start.c_str(), buf)) {
+                        // std::cout << "Received another " << occ << " responses, " << overall_sample_count - env.received_responses << " to go." << std::endl;
+                    }
+                });
+                while (workloads[id] >= 0)   {
+                    // TODO: change spin lock
+                    while (workloads[id] == 0);
+                    if (workloads[id] == -1) {
+                        break;
+                    }
+                    try {
+                        auto read_stats = HttpClient::receive_msg(conn, http_response_size, outbuf.data() + http_response_size * conn.id, handler);
+                        // TODO: how thread safe is this?
+                        std::unique_lock lock(thread_env_mutex);
+                        thread_envs[id]->latencies.push_back(read_stats.read_duration);
+                        thread_envs[id]->chunk_counts.push_back(read_stats.chunk_count);
+                        thread_envs[id]->payload_sizes.push_back(read_stats.payload_size);
+                        --workloads[id];
+                    } catch (std::runtime_error &e) {
+                        std::cerr << "Error while receiving message from the buffer, stopping thread " << conn.id << std::endl;
+                        break;
+                    }
+                }
+            });
+        }
         // Bookkeeping variables
         fd_set send_set;
         fd_set recv_set;
         // Add timing variables, start test
         clock::time_point start_time = clock::now();
-        loop:
         while (env.executed_requests < overall_sample_count || env.received_responses < overall_sample_count) {
             struct timeval timeout_def{  // TODO: read from config
                 10,
@@ -142,16 +176,8 @@ namespace s3benchmark {
             for (auto &conn : env.connections) {
                 // Check available read sockets
                 if (FD_ISSET(conn.socket, &recv_set) && env.received_responses < overall_sample_count) {
-                    try {
-                        auto read_stats = HttpClient::receive_msg(conn, http_response_size, outbuf.data() + http_response_size * conn.id, handler);
-                        FD_CLR(conn.socket, &recv_set);
-                        latencies.emplace_back(read_stats.read_duration);
-                        chunk_counts.emplace_back(read_stats.chunk_count);
-                        payload_sizes.emplace_back(read_stats.payload_size);
-                    } catch (std::runtime_error &e) {
-                        std::cerr << "Error while receiving message from the buffer, stopping..." << std::endl;
-                        goto run_end;
-                    }
+                    ++workloads[conn.id];
+                    FD_CLR(conn.socket, &recv_set);
                 }
                 // Check available write sockets
                 if(FD_ISSET(conn.socket, &send_set) && env.executed_requests < overall_sample_count) {
@@ -164,10 +190,27 @@ namespace s3benchmark {
                 }
             }
         }
-        run_end:
+        for (auto &&wl : workloads) {
+            --wl;
+        }
+        // Join worker threads, stop the timer
+        for (auto &thread : threads) {
+            thread.join();
+        }
         clock::time_point end_time = clock::now();
+        // Close the sockets
         for (auto &conn : env.connections) {
             conn.close_connection();
+        }
+
+        // Assemble overall results
+        std::vector<latency_t> latencies;
+        std::vector<size_t> chunk_counts;
+        std::vector<size_t> payload_sizes;
+        for (auto &t_env : thread_envs) {
+            latencies.insert(latencies.end(), t_env->latencies.begin(), t_env->latencies.end());
+            chunk_counts.insert(chunk_counts.end(), t_env->chunk_counts.begin(), t_env->chunk_counts.end());
+            payload_sizes.insert(payload_sizes.end(), t_env->payload_sizes.begin(), t_env->payload_sizes.end());
         }
 
         return RunResults{

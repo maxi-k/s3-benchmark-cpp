@@ -130,7 +130,7 @@ namespace s3benchmark {
             auto needle_size = needle_end - needle;
             auto haystack = *haystack_ptr;
             // TODO: optimize, int comparison / vector instructions?
-            while (haystack < end - needle_size + 1) {
+            while (haystack < end - needle_size + 0) {
                 const char* comp = needle;
                 while(comp != needle_end && haystack != end && (*haystack++) == (*comp++));
                 if (comp == needle_end && *(comp-1) == *(haystack-1)) {
