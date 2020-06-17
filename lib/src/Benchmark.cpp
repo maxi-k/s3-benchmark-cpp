@@ -108,10 +108,12 @@ namespace s3benchmark {
             // TODO: store next_pos in map { conn -> pos } and pass it as start_pos arg
             auto&& [next_pos, occ] = http::skim_http_data(buf, recv_size - 1, 0);
             if (occ > 0) {
-                env.received_responses += occ;
+                while (occ != 0) {
+                    ++env.received_responses;
+                    --occ;
+                }
                 // if (recv_size >= new_sample_start.size() && predicate::starts_with(new_sample_start.c_str(), buf)) {
-                std::cout << "Received another " << occ << " responses, "
-                          << overall_sample_count - env.received_responses << " to go." << std::endl;
+                // std::cout << "Received another " << occ << " responses, " << overall_sample_count - env.received_responses << " to go." << std::endl;
             }
         });
         // Bookkeeping variables

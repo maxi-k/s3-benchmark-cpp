@@ -101,7 +101,7 @@ namespace s3benchmark {
             , latency(run.latencies, latency_t::zero())
             , chunk_count(run.chunk_counts, 0ul)
             , payload_size(run.payload_sizes, 0ul) {
-            this->download_sum = samples_sum * params.payload_size;
+            this->download_sum = params.thread_count * params.thread_count * params.payload_size;
             this->throughput_http_mbps = (download_sum * 1.0 / units::mib) / (duration.count() * 1.0 / units::ms_per_sec);
             this->throughput_tcp_mbps = (payload_size.sum * 1.0 / units::mib) / (duration.count() * 1.0 / units::ms_per_sec);
         }

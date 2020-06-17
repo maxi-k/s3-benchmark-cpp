@@ -11,11 +11,12 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <poll.h>
-#include <errno.h>
+#include <cerrno>
 // C++ std
 #include <iostream>
 #include <vector>
 #include <cstring>
+#include <future>
 
 namespace s3benchmark {
 
@@ -50,7 +51,7 @@ namespace s3benchmark {
             } else {
                 recv_sum += recv_len;
                 ++chunk_count;
-                handler(conn, recv_len, recv_buffer);
+                auto future = std::async(std::launch::async, [&]() { handler(conn, recv_len, recv_buffer); });
             }
         } while(recv_len > 0);
         auto t_end = (conn.last_read = clock::now());
