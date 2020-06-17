@@ -83,56 +83,93 @@ namespace s3benchmark {
         }
 
         #include<iostream>
-#include<string>
+        #include<string>
 
-        inline int *pre_kmp(const std::string &pattern)
-        {
-            int size = pattern.size();
-            int *pie=new int [size];
+        // Adapted from https://gist.github.com/YDrall/d782a03430d5002cc3bc
+        inline size_t* pre_kmp(const std::string &pattern) {
+            auto size = pattern.size();
+            auto *pie = new size_t[size];
             pie[0] = 0;
-            int k=0;
-            for(int i=1;i<size;i++)
-            {
-                while(k>0 && pattern[k] != pattern[i] )
-                {
-                    k=pie[k-1];
+            size_t k = 0;
+            for (size_t i = 1; i < size; i++) {
+                while (k > 0 && pattern[k] != pattern[i]) {
+                    k = pie[k - 1];
                 }
-                if( pattern[k] == pattern[i] )
-                {
-                    k=k+1;
+                if (pattern[k] == pattern[i]) {
+                    k = k + 1;
                 }
-                pie[i]=k;
+                pie[i] = k;
             }
-
             return pie;
         }
 
-        inline size_t find_kmp(const std::string &text, const std::string &pattern)
-        {
-            int* pie=pre_kmp(pattern);
-            int matched_pos = 0;
-            int matches = 0;
-            for(int current=0; current< text.length(); current++)
-            {
-                while (matched_pos > 0 && pattern[matched_pos] != text[current] )
-                    matched_pos = pie[matched_pos-1];
-
-                if(pattern[matched_pos] == text[current])
+        // Adapted from https://gist.github.com/YDrall/d782a03430d5002cc3bc
+        // returns [ last_match_pos, n_matches ]
+        inline std::pair<size_t, size_t> find_kmp(const char* text, const size_t &text_length, const std::string &pattern) {
+            size_t pattern_length = pattern.length();
+            size_t* pie = pre_kmp(pattern);
+            size_t matched_pos = 0;
+            size_t matches = 0;
+            for(size_t current = 0; current < text_length; current++) {
+                while (matched_pos > 0 && pattern[matched_pos] != text[current]) {
+                    matched_pos = pie[matched_pos - 1];
+                }
+                if(pattern[matched_pos] == text[current]) {
                     matched_pos = matched_pos + 1;
-
-                if( matched_pos == (pattern.length()) )
-                {
-                    // std::cout << "Pattern occurs with shift " << current - (pattern.length() -1 );
+                }
+                if (matched_pos == pattern_length) {
                     ++matches;
-                    matched_pos = pie[matched_pos-1];
+                    matched_pos = pie[matched_pos - 1];
                 }
             }
-            return matches;
+            delete pie;
+            return { matched_pos, matches };
         }
 
+        inline bool find_next(char** haystack_ptr, const char* end, const char* needle, const char* needle_end) {
+            auto needle_size = needle_end - needle;
+            auto haystack = *haystack_ptr;
+            // TODO: optimize, int comparison / vector instructions?
+            while (haystack < end - needle_size + 1) {
+                const char* comp = needle;
+                while(comp != needle_end && haystack != end && (*haystack++) == (*comp++));
+                if (comp == needle_end && *(comp-1) == *(haystack-1)) {
+                    *haystack_ptr = haystack;
+                    return true;
+                }
+            }
+            *haystack_ptr = const_cast<char *>(end);
+            return false;
+        }
     }
 
     namespace http {
+
+        // [offset in next buffer, n_matches]
+        inline std::pair<size_t, size_t> skim_http_data(char* buf, const size_t &buf_len, const size_t &start_pos = 0) {
+            static const char search_string[] = "Content-Length: ";
+            static const size_t search_string_len = sizeof(search_string) - 1;
+            if (start_pos >= buf_len) {
+                return {start_pos - buf_len, 0};
+            }
+            size_t matches = 0;
+            const char* end = buf + buf_len;
+            char* pos = buf + start_pos;
+            while (pos < end) {
+                bool found = predicate::find_next(&pos, end, search_string, search_string + search_string_len - 1);
+                if (!found) {
+                    return { 0, matches};
+                }
+                ++matches;
+                if (pos == end) {
+                    return {0, matches};
+                }
+                auto skip_bytes = strtol(pos, &pos, 10) + 6; // parsed content length + 6 for http \r\n's
+                pos += skip_bytes;
+            }
+            return {pos - end, matches};
+        }
+
         inline size_t curl_callback(char *body, size_t size_mult, size_t nmemb, void *userdata) {
             auto size = size_mult * nmemb;
             static_cast<std::string*>(userdata)->append(body, size);

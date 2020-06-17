@@ -23,7 +23,7 @@ namespace s3benchmark {
         static ReadStats receive_msg(Connection &conn, const size_t &buffer_size, char* recv_buffer, const response_handler_t &handler);
         static void send_msg(Connection &conn, const std::string &msg);
         static hostent* lookup_host(const std::string &url);
-        static Connection create_connection(const hostent* host);
+        static Connection create_connection(const hostent* host, size_t id = 0ul);
     };
 
 }  // namespace s3benchmark

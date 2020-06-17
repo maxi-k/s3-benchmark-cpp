@@ -84,7 +84,8 @@ namespace s3benchmark {
     };
 
     struct RunStats : public RunParameters {
-        double throughput_mbps;
+        double throughput_http_mbps;
+        double throughput_tcp_mbps;
         latency_t duration;
         size_t download_sum;
         size_t samples_sum;
@@ -101,11 +102,13 @@ namespace s3benchmark {
             , chunk_count(run.chunk_counts, 0ul)
             , payload_size(run.payload_sizes, 0ul) {
             this->download_sum = samples_sum * params.payload_size;
-            this->throughput_mbps = (download_sum * 1.0 / units::mib) / (duration.count() * 1.0 / units::ms_per_sec);
+            this->throughput_http_mbps = (download_sum * 1.0 / units::mib) / (duration.count() * 1.0 / units::ms_per_sec);
+            this->throughput_tcp_mbps = (payload_size.sum * 1.0 / units::mib) / (duration.count() * 1.0 / units::ms_per_sec);
         }
     };
 
     struct Connection {
+        size_t id;
         int socket;
         timestamp_t last_write;
         timestamp_t last_read;
@@ -117,6 +120,15 @@ namespace s3benchmark {
                 close(this->socket);
             }
             this->socket = -1;
+        }
+        template<typename T>
+        static inline fd_set make_fd_set(const T &conn_list) {
+            fd_set set;
+            FD_ZERO(&set);
+            for (auto &conn : conn_list) {
+                FD_SET(conn.socket, &set);
+            }
+            return set;
         }
     };
 

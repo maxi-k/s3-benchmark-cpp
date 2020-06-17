@@ -73,15 +73,11 @@ namespace s3benchmark {
         std::vector<Connection> connections;
         connections.reserve(params.thread_count); // TODO: does socket_count == thread_count make sense?
         for (int i = 0; i < params.thread_count; ++i) {
-            connections.push_back(HttpClient::create_connection(host_def));
+            connections.push_back(HttpClient::create_connection(host_def, i));
         }
         // Prepare POSIX file descriptor sets
-        fd_set send_set; FD_ZERO(&send_set);
-        fd_set recv_set; FD_ZERO(&recv_set);
-        for (auto &conn : connections) {
-            FD_SET(conn.socket, &send_set);
-            FD_SET(conn.socket, &recv_set);
-        }
+        fd_set send_set = Connection::make_fd_set(connections);
+        fd_set recv_set = Connection::make_fd_set(connections);
 
         return TestEnv{
             connections,
@@ -101,21 +97,22 @@ namespace s3benchmark {
         auto env = this->prepare_run(params);
         // Allocate memory for the results
         size_t http_response_size = params.payload_size + (1ul << 10ul); // + http header est. 1kb
-        std::vector<char> outbuf(params.thread_count * http_response_size);
+        std::vector<char> outbuf(overall_sample_count * http_response_size);
         std::vector<latency_t> latencies;
         std::vector<size_t> chunk_counts(env.connections.size(), 0); // TODO: per query chunk counts instead of per socket
         std::vector<size_t> payload_sizes(env.connections.size(), 0); // TODO: per query chunk sizes instead of per socket
         // Initialize the 'chunk received' handler
-        std::string new_sample_start("HTTP/1.1 206 Partial Content");
         HttpClient::response_handler_t handler([&](const Connection& conn, size_t recv_size, char* buf) {
-            if (recv_size < new_sample_start.size()) {
-                return;
-            }
             // TODO: need to search the whole response for the search string; very slow. is there another way?
             // (1) Idea: find Content-Length field in header and then skip that many bytes
-            auto buf_str = std::string(buf, recv_size);
-            env.received_responses = predicate::find_kmp(buf_str, new_sample_start);
-            // std::cout << "Received another " << occ << " responses, " << overall_sample_count - env.received_responses << " to go." << std::endl;
+            // TODO: store next_pos in map { conn -> pos } and pass it as start_pos arg
+            auto&& [next_pos, occ] = http::skim_http_data(buf, recv_size - 1, 0);
+            if (occ > 0) {
+                env.received_responses += occ;
+                // if (recv_size >= new_sample_start.size() && predicate::starts_with(new_sample_start.c_str(), buf)) {
+                std::cout << "Received another " << occ << " responses, "
+                          << overall_sample_count - env.received_responses << " to go." << std::endl;
+            }
         });
         // Bookkeeping variables
         fd_set send_set;
@@ -139,21 +136,21 @@ namespace s3benchmark {
                 throw std::runtime_error("select(2) error.");
             }
             if (select_res == 0) {
-                std::cout << "Timeout on polling;" << std::endl;
+                std::cerr << "Timeout on polling;" << std::endl;
                 break;
             }
             for (auto &conn : env.connections) {
                 // Check available read sockets
                 if (FD_ISSET(conn.socket, &recv_set) && env.received_responses < overall_sample_count) {
                     try {
-                        auto read_stats = HttpClient::receive_msg(conn, outbuf.size(), outbuf.data(), handler);
+                        auto read_stats = HttpClient::receive_msg(conn, http_response_size, outbuf.data() + http_response_size * conn.id, handler);
                         FD_CLR(conn.socket, &recv_set);
                         latencies.emplace_back(read_stats.read_duration);
                         chunk_counts.emplace_back(read_stats.chunk_count);
                         payload_sizes.emplace_back(read_stats.payload_size);
                     } catch (std::runtime_error &e) {
-                        std::cerr << "Error while receiving message from the buffer, continuing...";
-                        goto loop;
+                        std::cerr << "Error while receiving message from the buffer, stopping..." << std::endl;
+                        goto run_end;
                     }
                 }
                 // Check available write sockets
@@ -167,6 +164,7 @@ namespace s3benchmark {
                 }
             }
         }
+        run_end:
         clock::time_point end_time = clock::now();
         for (auto &conn : env.connections) {
             conn.close_connection();

@@ -73,7 +73,7 @@ namespace s3benchmark {
         return gethostbyname(url.c_str()); // TODO: DNS cache?
     }
 
-    Connection HttpClient::create_connection(const hostent* host) {
+    Connection HttpClient::create_connection(const hostent* host, size_t id) {
         using sock_addr = struct sockaddr;
         using inet_addr = struct sockaddr_in;
         // Initialize socket and address struct
@@ -106,6 +106,7 @@ namespace s3benchmark {
         //     throw std::runtime_error("Error using setsockopt() for TCP_NODELAY.");
         // }
         return Connection{
+            id,
             fd,
             clock::time_point::min(),
             clock::time_point::min()
