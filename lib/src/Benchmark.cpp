@@ -57,6 +57,7 @@ namespace s3benchmark {
         auto overall_sample_count = params.sample_count * params.thread_count;
         // host definition
         auto host_def = HttpClient::lookup_host(this->config.bucket_name + ".s3.amazonaws.com");
+        auto host_lookup_time = clock::now();
         // requests
         // TODO: make more dynamic (substring, hostname)
         auto shared_http_header = "GET " + this->presigned_url.substr(54) + " HTTP/1.1\r\n" +
@@ -83,6 +84,7 @@ namespace s3benchmark {
             connections,
             requests,
             host_def,
+            host_lookup_time,
             static_cast<int>(connections.size()),
             send_set,
             recv_set,
@@ -102,12 +104,16 @@ namespace s3benchmark {
         std::vector<size_t> chunk_counts(env.connections.size(), 0); // TODO: per query chunk counts instead of per socket
         std::vector<size_t> payload_sizes(env.connections.size(), 0); // TODO: per query chunk sizes instead of per socket
         // Initialize the 'chunk received' handler
-        HttpClient::response_handler_t handler([&](const Connection& conn, size_t recv_size, char* buf) {
+        std::function<void(size_t, char*)> handler([&outbuf, &env](size_t recv_size, char* buf) {
             // TODO: need to search the whole response for the search string; very slow. is there another way?
             // (1) Idea: find Content-Length field in header and then skip that many bytes
             // TODO: store next_pos in map { conn -> pos } and pass it as start_pos arg
             auto&& [next_pos, occ] = http::skim_http_data(buf, recv_size - 1, 0);
             if (occ > 0) {
+                if (occ > 1) {
+                    std::cout << "More than one occurance of the header in this package!" << std::endl;
+                    std::cout << std::string(buf, recv_size) << std::endl;
+                }
                 while (occ != 0) {
                     ++env.received_responses;
                     --occ;
@@ -116,12 +122,45 @@ namespace s3benchmark {
                 // std::cout << "Received another " << occ << " responses, " << overall_sample_count - env.received_responses << " to go." << std::endl;
             }
         });
+        auto buf_pos = 0;
+        struct task_list_t {
+            size_t recv_size;
+            char* buffer;
+            task_list_t* next;
+        };
+        std::mutex task_lock;
+        task_list_t* task_list = nullptr;
+        HttpClient::response_handler_t async_handler([&](const Connection& conn, size_t recv_size, char* buf) {
+            buf_pos += recv_size;
+            task_lock.lock();
+            task_list = new task_list_t{ recv_size, buf, task_list };
+            task_lock.unlock();
+        });
+
+        auto thread_stage = 0;
+        auto worker_thread = std::thread([&]() {
+            // TODO: spin locks
+            while (thread_stage == 0);
+            while (thread_stage == 1) {
+                while (task_list == nullptr && thread_stage == 1);
+                if (thread_stage != 1) { break; }
+                task_lock.lock();
+                if (task_list == nullptr ) {
+                    task_lock.unlock();
+                    break;
+                }
+                auto next_task = *task_list;
+                task_list = next_task.next;
+                task_lock.unlock();
+                handler(next_task.recv_size, next_task.buffer);
+            }
+        });
         // Bookkeeping variables
         fd_set send_set;
         fd_set recv_set;
         // Add timing variables, start test
         clock::time_point start_time = clock::now();
-        loop:
+        ++thread_stage;
         while (env.executed_requests < overall_sample_count || env.received_responses < overall_sample_count) {
             struct timeval timeout_def{  // TODO: read from config
                 10,
@@ -145,14 +184,23 @@ namespace s3benchmark {
                 // Check available read sockets
                 if (FD_ISSET(conn.socket, &recv_set) && env.received_responses < overall_sample_count) {
                     try {
-                        auto read_stats = HttpClient::receive_msg(conn, http_response_size, outbuf.data() + http_response_size * conn.id, handler);
+                        auto read_stats = HttpClient::receive_msg(conn, http_response_size, outbuf.data() + buf_pos, async_handler);
                         FD_CLR(conn.socket, &recv_set);
                         latencies.emplace_back(read_stats.read_duration);
                         chunk_counts.emplace_back(read_stats.chunk_count);
                         payload_sizes.emplace_back(read_stats.payload_size);
                     } catch (std::runtime_error &e) {
-                        std::cerr << "Error while receiving message from the buffer, stopping..." << std::endl;
-                        goto run_end;
+                        std::cerr << "Error while receiving message from the buffer, restarting socket..." << std::endl;
+                        conn.close_connection();
+                        // TODO: see what value makes sense here
+                        if (std::chrono::duration_cast<std::chrono::seconds>(clock::now() - env.last_host_lookup).count() > 30) {
+                            env.last_host_lookup = clock::now();
+                            env.remote_host = HttpClient::lookup_host(this->config.bucket_name + ".s3.amazonaws.com");
+                        }
+                        conn = HttpClient::create_connection(env.remote_host, conn.id);
+                        --env.executed_requests;
+                        // throw e;
+                        // goto run_end;
                     }
                 }
                 // Check available write sockets
@@ -160,13 +208,17 @@ namespace s3benchmark {
                     HttpClient::send_msg(conn, env.requests[env.executed_requests]);
                     FD_CLR(conn.socket, &send_set);
                     ++env.executed_requests;
-                    if (env.executed_requests == overall_sample_count) {
-                        std::cout << "Sent all requests!" << std::endl;
-                    }
+                    // if (env.executed_requests == overall_sample_count) {
+                    //     std::cout << "Sent all requests!" << std::endl;
+                    // }
                 }
             }
         }
         run_end:
+
+        ++thread_stage;
+        worker_thread.join();
+
         clock::time_point end_time = clock::now();
         for (auto &conn : env.connections) {
             conn.close_connection();

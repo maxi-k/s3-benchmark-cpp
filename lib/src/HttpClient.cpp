@@ -31,14 +31,14 @@ namespace s3benchmark {
         auto read_size = buffer_size;
         auto t_start = clock::now();
         do {
-            recv_len = recv(conn.socket, recv_buffer, read_size, MSG_DONTWAIT);
+            recv_len = recv(conn.socket, recv_buffer + recv_sum, read_size - recv_sum, MSG_DONTWAIT);
             if (recv_len == -1) {
                 auto read_err = errno;
-                if (read_err == EWOULDBLOCK && read_size > 100) {  // back-off strategy if socket would block
-                    read_size /= 2;
-                    continue;
-                }
-                std::cerr << "Read error: " << read_err << " on socket " << conn.socket << std::endl;
+                 if (read_err == EWOULDBLOCK) {
+                //     read_size /= 2; // back-off strategy if socket would block
+                     continue;
+                 }
+                std::cerr << "Read error: 0x" << std::hex << read_err << std::dec << " on socket " << conn.socket << std::endl;
                 break;
             } else if (recv_len == 0) {
                 //std::cout << "No more data to receive." << std::endl;
@@ -51,9 +51,9 @@ namespace s3benchmark {
             } else {
                 recv_sum += recv_len;
                 ++chunk_count;
-                auto future = std::async(std::launch::async, [&]() { handler(conn, recv_len, recv_buffer); });
             }
-        } while(recv_len > 0);
+        } while(recv_len > 0 && recv_sum <= buffer_size);
+        handler(conn, recv_sum, recv_buffer);
         auto t_end = (conn.last_read = clock::now());
         return ReadStats{
             chunk_count,

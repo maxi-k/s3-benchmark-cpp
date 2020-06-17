@@ -135,7 +135,9 @@ namespace s3benchmark {
     struct TestEnv {
         std::vector<Connection> connections;
         std::vector<std::string> requests;
+
         hostent *remote_host;
+        clock::time_point last_host_lookup;
 
         int set_count;
         fd_set send_set_all;
