@@ -33,11 +33,9 @@ namespace s3benchmark {
             recv_len = recv(conn.socket, recv_buffer + recv_sum, std::min(read_size, buffer_size - recv_sum), MSG_DONTWAIT);
             if (recv_len == -1) {
                 auto read_err = errno;
-                if (read_err == EWOULDBLOCK && read_size > 100) {  // back-off strategy if socket would block
-                    read_size /= 2;
-                    continue;
+                if (read_err != EWOULDBLOCK) {  // back-off strategy if socket would block
+                    std::cerr << "Read error: " << read_err << " on socket " << conn.socket << std::endl;
                 }
-                std::cerr << "Read error: " << read_err << " on socket " << conn.socket << std::endl;
                 break;
             } else if (recv_len == 0) {
                 //std::cout << "No more data to receive." << std::endl;
@@ -46,13 +44,15 @@ namespace s3benchmark {
                     // break;
                     throw std::runtime_error("Did not receive any data from request on socket.");
                 }
+                // std::cout << "Received nothing from socket " << conn.id << std::endl;
                 break;
             } else {
                 recv_sum += recv_len;
                 ++chunk_count;
             }
-        } while(recv_len > 0);
+        } while(recv_len > 0 && recv_sum < buffer_size);
         handler(conn, recv_sum, recv_buffer);
+
         auto t_end = (conn.last_read = clock::now());
         return ReadStats{
             chunk_count,
@@ -86,28 +86,29 @@ namespace s3benchmark {
         destination.sin_addr.s_addr = *((unsigned long *) host->h_addr);
         // std::cout << "Trying to connect to ip " << inet_ntoa(destination.sin_addr) << std::endl;
         // Set relevant socket options
-        int flags =1;
-        if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &flags, sizeof(flags))) {
-            throw std::runtime_error("Error using setsocketopt() for SO_KEEPALIVE");
-        }
+        // int flags =1;
+        // if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &flags, sizeof(flags))) {
+        //     throw std::runtime_error("Error using setsocketopt() for SO_KEEPALIVE");
+        // }
 
-        flags = 10;
-        if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &flags, sizeof(flags))) {
-            throw std::runtime_error("Error using setsocketopt() for TCP_KEEPIDLE");
-        }
+        // flags = 10;
+        // if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &flags, sizeof(flags))) {
+        //     throw std::runtime_error("Error using setsocketopt() for TCP_KEEPIDLE");
+        // }
         // Connect to the socket, throw if not possible
         int is_connected = connect(fd, (sock_addr *) &destination, sizeof(sock_addr));
         if (is_connected == -1) {
             close(fd);
             throw std::runtime_error("Could not connect socket to host " + std::string(host->h_name));
         }
-        // int tcp_nodelay_opt = 1;
-        // if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &tcp_nodelay_opt, sizeof(tcp_nodelay_opt)) < 0) {
-        //     throw std::runtime_error("Error using setsockopt() for TCP_NODELAY.");
-        // }
+        int tcp_nodelay_opt = 1;
+        if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &tcp_nodelay_opt, sizeof(tcp_nodelay_opt)) < 0) {
+            throw std::runtime_error("Error using setsockopt() for TCP_NODELAY.");
+        }
         return Connection{
             id,
             fd,
+            0,
             0,
             clock::time_point::min(),
             clock::time_point::min()

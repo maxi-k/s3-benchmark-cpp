@@ -27,15 +27,15 @@ namespace s3benchmark::cli {
             "The maximum number of threads to use when fetching objects from S3 as a multiple of the hardware thread count.");
             DEFINE_double(threads_step, 2,
             "What increase in thread count per benchmark run is. Positive means multiplicative, negative means additive.");
-            DEFINE_uint64(payloads_min, 10 * units::kib,
+            DEFINE_uint64(payloads_min, 64 * units::kib,
             "The minimum object size to test, with 1 = 1 MB, and every increment is a double of the previous value.");
-            DEFINE_uint64(payloads_max, 160 * units::kib,
+            DEFINE_uint64(payloads_max, 512 * units::kib,
             "The maximum object size to test, with 1 = 1 MB, and every increment is a double of the previous value.");
             DEFINE_uint64(payloads_step, 2,
             "What the multiplicative increase in payload size per benchmark run is (size *= step). Must be > 1");
             DEFINE_bool(payloads_reverse, false,
             "If true, start with the largest payload size first and decrease from there");
-            DEFINE_uint64(samples, 10,
+            DEFINE_uint64(samples, 20,
             "The number of samples to collect for each test of a single object size per thread.");
             DEFINE_uint64(samples_cap, 7200,
             "The maximum number of samples to collect for each test of a single object size.");
@@ -54,7 +54,7 @@ namespace s3benchmark::cli {
             DEFINE_string(upload_stats, "",
             "Upload CPU stats from during the benchmark to S3 as a CSV file.");
 
-        } // namespace flags
+        }  // namespace flags
 
         Config config_from_flags(int *argc, char ***argv) {
             gflags::ParseCommandLineFlags(argc, argv, true);

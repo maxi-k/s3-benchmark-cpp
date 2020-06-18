@@ -111,6 +111,7 @@ namespace s3benchmark {
         size_t id;
         int socket;
         long pending_bytes;
+        int writes;
         timestamp_t last_write;
         timestamp_t last_read;
         inline bool is_open() const {
@@ -127,7 +128,9 @@ namespace s3benchmark {
             fd_set set;
             FD_ZERO(&set);
             for (auto &conn : conn_list) {
-                FD_SET(conn.socket, &set);
+                if (conn.is_open()) {
+                    FD_SET(conn.socket, &set);
+                }
             }
             return set;
         }

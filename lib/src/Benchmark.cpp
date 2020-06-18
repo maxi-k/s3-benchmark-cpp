@@ -151,17 +151,25 @@ namespace s3benchmark {
         auto env = this->prepare_run(params);
         // Allocate memory for the results
         size_t http_response_size = params.payload_size + (1ul << 10ul); // + http header est. 1kb
-        std::vector<char> outbuf(env.overall_sample_count * http_response_size);
-        std::vector<latency_t> latencies;
-        std::vector<size_t> chunk_counts(env.connections.size(), 0); // TODO: per query chunk counts instead of per socket
-        std::vector<size_t> payload_sizes(env.connections.size(), 0); // TODO: per query chunk sizes instead of per socket
+        std::vector<char> outbuf(params.thread_count * http_response_size);
+        std::vector<latency_t> latencies; latencies.reserve(env.overall_sample_count * 10);
+        std::vector<size_t> chunk_counts; chunk_counts.reserve(env.overall_sample_count * 10);
+        std::vector<size_t> payload_sizes;  payload_sizes.reserve(env.overall_sample_count * 10);
         // Initialize the 'chunk received' handler
         const static char response_start[] = "HTTP/1.1 206 Partial Content";
+        const static char http_header_end[] = "\r\n\r\n";
         HttpClient::response_handler_t handler([&](Connection& conn, size_t recv_size, char* buf) {
             env.received_bytes += recv_size;
-            conn.pending_bytes -= recv_size;
             if (predicate::starts_with(buf, response_start)) { // TODO: how expensive is this? load onto extra thread?
                 ++env.received_responses;
+                auto nbuf = buf;
+                auto content_start = predicate::find_next(&nbuf, buf + recv_size, http_header_end, http_header_end + sizeof(http_header_end) - 1);
+                conn.pending_bytes -= (buf + recv_size) - nbuf - 1;
+            } else {
+                conn.pending_bytes -= recv_size;
+            }
+            if (conn.pending_bytes < 0) {
+                std::cerr << "error during byte length calculation: " << conn.pending_bytes << std::endl;
             }
             // std::cout << "Received response:" << std::endl;
             // std::cout << "------------------------------------------------------------------------------" << std::endl;
@@ -184,7 +192,7 @@ namespace s3benchmark {
         // Add timing variables, start test
         clock::time_point start_time = clock::now();
         thread_stage = 1;
-        while (env.executed_requests < env.overall_sample_count || env.received_responses < env.overall_sample_count) {
+        while (env.received_responses < env.overall_sample_count) {
             struct timeval timeout_def{  // TODO: read from config
                 10,
                 500
@@ -214,23 +222,21 @@ namespace s3benchmark {
                     HttpClient::send_msg(conn, env.requests[env.executed_requests]);
                     FD_CLR(conn.socket, &send_set);
                     ++env.executed_requests;
-                    conn.pending_bytes += params.payload_size + 100;
-                    if (env.executed_requests == env.overall_sample_count) {
-                        // std::cout << "Sent all requests!" << std::endl;
-                    }
+                    ++conn.writes;
+                    conn.pending_bytes += params.payload_size;
                 }
                 // Check available read sockets
-                if (FD_ISSET(conn.socket, &recv_set) && env.received_responses < env.overall_sample_count) {
+                if (FD_ISSET(conn.socket, &recv_set) && conn.pending_bytes != 0 && conn.writes != 0 && env.received_responses < env.overall_sample_count) {
                     try {
                         auto read_stats = HttpClient::receive_msg(conn, http_response_size, outbuf.data() + http_response_size * conn.id, handler);
+                        FD_CLR(conn.socket, &recv_set);
                         latencies.emplace_back(read_stats.read_duration);
                         chunk_counts.emplace_back(read_stats.chunk_count);
                         payload_sizes.emplace_back(read_stats.payload_size);
                     } catch (std::runtime_error &e) {
                         std::cerr << "Error while receiving message on socket" << conn.id << ": " << e.what() << std::endl;
                     }
-                    if (conn.pending_bytes <= 0) {
-                        FD_CLR(conn.socket, &recv_set);
+                    if (conn.pending_bytes == 0) {
                         conn.close_connection();
                         ++pool.closed_sockets;
                     }
