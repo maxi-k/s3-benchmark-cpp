@@ -15,7 +15,7 @@ namespace s3benchmark {
 
     class HttpClient {
     public:
-        using response_handler_t = std::function<void(const Connection&, size_t, char*)>;
+        using response_handler_t = std::function<void(Connection&, size_t, char*)>;
         HttpClient();
 
         ~HttpClient();

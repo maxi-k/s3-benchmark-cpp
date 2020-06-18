@@ -30,7 +30,7 @@ namespace s3benchmark {
         auto read_size = buffer_size;
         auto t_start = clock::now();
         do {
-            recv_len = recv(conn.socket, recv_buffer, read_size, MSG_DONTWAIT);
+            recv_len = recv(conn.socket, recv_buffer + recv_sum, std::min(read_size, buffer_size - recv_sum), MSG_DONTWAIT);
             if (recv_len == -1) {
                 auto read_err = errno;
                 if (read_err == EWOULDBLOCK && read_size > 100) {  // back-off strategy if socket would block
@@ -50,9 +50,9 @@ namespace s3benchmark {
             } else {
                 recv_sum += recv_len;
                 ++chunk_count;
-                handler(conn, recv_len, recv_buffer);
             }
         } while(recv_len > 0);
+        handler(conn, recv_sum, recv_buffer);
         auto t_end = (conn.last_read = clock::now());
         return ReadStats{
             chunk_count,
@@ -108,6 +108,7 @@ namespace s3benchmark {
         return Connection{
             id,
             fd,
+            0,
             clock::time_point::min(),
             clock::time_point::min()
         };

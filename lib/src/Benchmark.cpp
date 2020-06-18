@@ -86,47 +86,116 @@ namespace s3benchmark {
             static_cast<int>(connections.size()),
             send_set,
             recv_set,
+            params.sample_count * params.thread_count,
+            0,
             0,
             0
         };
 
     }
 
+    void thread_count_http_responses(TestEnv &env, std::vector<char> &buffer, int &thread_stage) {
+        while (thread_stage == 0);
+        size_t counted_bytes = 0;
+        while (env.received_responses < env.overall_sample_count) {
+            while (counted_bytes >= env.received_bytes && thread_stage == 1);
+            if (thread_stage != 1) { break; }
+            auto &&[ skip, matches ] = http::skim_http_data(buffer.data() + counted_bytes, env.received_bytes - counted_bytes);
+            if (matches > 0) {
+                std::cout << "Found " << matches << "  matches, skipping content-length of " << skip << std::endl;
+            } else {
+                std::cout << "No matches";
+            }
+            counted_bytes += env.received_bytes + skip;
+            env.received_responses += matches;
+        }
+    }
+
+    struct SocketPool {
+        std::vector<Connection> connections;
+        std::mutex connections_lock;
+        size_t closed_sockets;
+
+        ~SocketPool() {
+            for (auto &conn : connections) {
+                conn.close_connection();
+            }
+            closed_sockets = connections.size();
+        }
+    };
+
+    void thread_prepare_socket_pools(const Config &config, const RunParameters &params, TestEnv &env, SocketPool &pool, int &thread_stage) {
+        while (thread_stage == 0);  // TODO: spin lock
+        while (thread_stage == 1) {
+            while(pool.closed_sockets == 0 && thread_stage == 1);  // TODO: spin lock
+            if (thread_stage != 1) { break; }
+            auto host = HttpClient::lookup_host(config.bucket_name + ".s3.amazonaws.com");
+            // std::cout << "Looked up host, creating new socket pool" << std::endl;
+            auto reopened_sockets = 0;
+            for (auto &conn : pool.connections) {
+                if (!conn.is_open()) {
+                    pool.connections_lock.lock();
+                    conn = HttpClient::create_connection(host, conn.id);
+                    ++reopened_sockets;
+                    pool.connections_lock.unlock();
+                }
+            }
+            while (reopened_sockets > 0) {
+                --reopened_sockets;
+                --pool.closed_sockets;
+            }
+        }
+    }
+
     RunResults Benchmark::do_run(const RunParameters &params) const {
-        auto overall_sample_count = params.sample_count * params.thread_count;
         auto env = this->prepare_run(params);
         // Allocate memory for the results
         size_t http_response_size = params.payload_size + (1ul << 10ul); // + http header est. 1kb
-        std::vector<char> outbuf(overall_sample_count * http_response_size);
+        std::vector<char> outbuf(env.overall_sample_count * http_response_size);
         std::vector<latency_t> latencies;
         std::vector<size_t> chunk_counts(env.connections.size(), 0); // TODO: per query chunk counts instead of per socket
         std::vector<size_t> payload_sizes(env.connections.size(), 0); // TODO: per query chunk sizes instead of per socket
         // Initialize the 'chunk received' handler
-        HttpClient::response_handler_t handler([&](const Connection& conn, size_t recv_size, char* buf) {
-            // TODO: need to search the whole response for the search string; very slow. is there another way?
-            // (1) Idea: find Content-Length field in header and then skip that many bytes
-            // TODO: store next_pos in map { conn -> pos } and pass it as start_pos arg
-            auto&& [next_pos, occ] = http::skim_http_data(buf, recv_size - 1, 0);
-            if (occ > 0) {
-                env.received_responses += occ;
-                // if (recv_size >= new_sample_start.size() && predicate::starts_with(new_sample_start.c_str(), buf)) {
-                std::cout << "Received another " << occ << " responses, "
-                          << overall_sample_count - env.received_responses << " to go." << std::endl;
+        const static char response_start[] = "HTTP/1.1 206 Partial Content";
+        HttpClient::response_handler_t handler([&](Connection& conn, size_t recv_size, char* buf) {
+            env.received_bytes += recv_size;
+            conn.pending_bytes -= recv_size;
+            if (predicate::starts_with(buf, response_start)) { // TODO: how expensive is this? load onto extra thread?
+                ++env.received_responses;
             }
+            // std::cout << "Received response:" << std::endl;
+            // std::cout << "------------------------------------------------------------------------------" << std::endl;
+            // std::cout << std::string(buf, recv_size) << std::endl;
+            // std::cout << "------------------------------------------------------------------------------" << std::endl;
         });
-        // Bookkeeping variables
-        fd_set send_set;
+        // Socket pools
+        auto pool = SocketPool{
+                env.connections,
+                std::mutex(),
+                0
+        };
         fd_set recv_set;
+        fd_set send_set;
+
+        // Threads
+        auto thread_stage = 0;
+        // auto scan_thread = std::thread([&]() { thread_count_http_responses(env, outbuf, thread_stage); });
+        auto conn_thread = std::thread([&]() { thread_prepare_socket_pools(config, params, env, pool, thread_stage); });
         // Add timing variables, start test
         clock::time_point start_time = clock::now();
-        loop:
-        while (env.executed_requests < overall_sample_count || env.received_responses < overall_sample_count) {
+        thread_stage = 1;
+        while (env.executed_requests < env.overall_sample_count || env.received_responses < env.overall_sample_count) {
             struct timeval timeout_def{  // TODO: read from config
                 10,
                 500
             };
-            std::memcpy(&send_set, &env.send_set_all, sizeof(send_set));
-            std::memcpy(&recv_set, &env.recv_set_all, sizeof(recv_set));
+            while (pool.closed_sockets == params.thread_count) {
+                std::cout << "Waiting for fresh sockets..." << std::endl;
+            }
+            pool.connections_lock.lock();
+            recv_set = Connection::make_fd_set(pool.connections);
+            send_set = Connection::make_fd_set(pool.connections); // TODO memcpy
+            pool.connections_lock.unlock();
             auto select_res = select(env.set_count + 1, &recv_set, &send_set, nullptr, &timeout_def);
 
             if (select_res < 0) {
@@ -139,36 +208,40 @@ namespace s3benchmark {
                 std::cerr << "Timeout on polling;" << std::endl;
                 break;
             }
-            for (auto &conn : env.connections) {
+            for (auto &conn : pool.connections) {
+                // Check available write sockets
+                if(FD_ISSET(conn.socket, &send_set) && conn.pending_bytes == 0 && env.executed_requests < env.overall_sample_count) {
+                    HttpClient::send_msg(conn, env.requests[env.executed_requests]);
+                    FD_CLR(conn.socket, &send_set);
+                    ++env.executed_requests;
+                    conn.pending_bytes += params.payload_size + 100;
+                    if (env.executed_requests == env.overall_sample_count) {
+                        // std::cout << "Sent all requests!" << std::endl;
+                    }
+                }
                 // Check available read sockets
-                if (FD_ISSET(conn.socket, &recv_set) && env.received_responses < overall_sample_count) {
+                if (FD_ISSET(conn.socket, &recv_set) && env.received_responses < env.overall_sample_count) {
                     try {
                         auto read_stats = HttpClient::receive_msg(conn, http_response_size, outbuf.data() + http_response_size * conn.id, handler);
-                        FD_CLR(conn.socket, &recv_set);
                         latencies.emplace_back(read_stats.read_duration);
                         chunk_counts.emplace_back(read_stats.chunk_count);
                         payload_sizes.emplace_back(read_stats.payload_size);
                     } catch (std::runtime_error &e) {
-                        std::cerr << "Error while receiving message from the buffer, stopping..." << std::endl;
-                        goto run_end;
+                        std::cerr << "Error while receiving message on socket" << conn.id << ": " << e.what() << std::endl;
                     }
-                }
-                // Check available write sockets
-                if(FD_ISSET(conn.socket, &send_set) && env.executed_requests < overall_sample_count) {
-                    HttpClient::send_msg(conn, env.requests[env.executed_requests]);
-                    FD_CLR(conn.socket, &send_set);
-                    ++env.executed_requests;
-                    if (env.executed_requests == overall_sample_count) {
-                        std::cout << "Sent all requests!" << std::endl;
+                    if (conn.pending_bytes <= 0) {
+                        FD_CLR(conn.socket, &recv_set);
+                        conn.close_connection();
+                        ++pool.closed_sockets;
                     }
                 }
             }
         }
-        run_end:
         clock::time_point end_time = clock::now();
-        for (auto &conn : env.connections) {
-            conn.close_connection();
-        }
+
+        thread_stage = 2;
+        conn_thread.join();
+        // scan_thread.join();
 
         return RunResults{
             latencies,
