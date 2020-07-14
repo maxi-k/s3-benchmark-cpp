@@ -6,12 +6,13 @@
 namespace benchmark {
 
     void Logger::print_config_params(const ConfigParameters &config) const {
-        out << "\n+------------------- \033[1;32mRUN CONFIGURATION\033[0m -------------------+\n";
         auto dry_run = config.dry_run ? "Yes" : "No";
         auto payload_dir = config.payloads_reverse ? "Backward" : "Forward";
 
+        out << "\n+---------------- \033[1;32mGENERAL CONFIGURATION\033[0m ------------------+\n";
         print_conf_var("Dry Run Only", dry_run);
         print_conf_var("EC2 Region", config.region);
+        out << "+------------------- \033[1;32mS3 CONFIGURATION\033[0m --------------------+\n";
         print_conf_var("Bucket Name", config.bucket_name);
         print_conf_var("Object Name", config.object_name);
         print_conf_var("Payloads Min", config.payloads_min);

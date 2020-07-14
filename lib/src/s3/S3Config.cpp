@@ -2,7 +2,7 @@
 // Created by maxi on 14.07.20.
 //
 
-#include "benchmark/s3/S3Config.hpp"
+#include "benchmark/s3/S3Benchmark.hpp"
 
 namespace benchmark::s3 {
     S3Config::S3Config(Config &&config)

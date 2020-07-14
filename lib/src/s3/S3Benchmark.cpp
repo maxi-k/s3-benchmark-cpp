@@ -15,9 +15,6 @@
 #include <algorithm>
 #include <thread>
 
-#include "benchmark/s3/S3Config.hpp"
-#include "benchmark/s3/S3Types.hpp"
-
 namespace benchmark::s3 {
 
     S3Benchmark::S3Benchmark(const S3Config &config)

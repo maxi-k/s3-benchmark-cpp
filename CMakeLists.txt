@@ -50,7 +50,7 @@ add_dependencies(lint ${lint_targets})
 # Configuration
 # ---------------------------------------------------------------------------
 
-message(STATUS "[S3 BENCHMARK] settings")
+message(STATUS "[BENCHMARK] settings")
 message(STATUS "    BENCH_LIB_DIR               = ${BENCH_LIB_DIR}")
 message(STATUS "    BENCH_CLI_DIR               = ${BENCH_CLI_DIR}")
 message(STATUS "[CMAKE] settings")

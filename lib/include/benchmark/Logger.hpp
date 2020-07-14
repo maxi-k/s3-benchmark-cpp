@@ -6,7 +6,6 @@
 #define _BENCHMARK_LOGGER_HPP
 
 #include <ostream>
-#include "benchmark/s3/S3Types.hpp"
 #include "Config.hpp"
 
 namespace benchmark {
@@ -22,6 +21,5 @@ namespace benchmark {
         void print_ec2_config(const EC2Config &config) const;
     };
 }  // namespace benchmark
-
 
 #endif  // _BENCHMARK_LOGGER_HPP

@@ -3,8 +3,6 @@
 //
 #include <fstream>
 #include "benchmark/s3/S3Benchmark.hpp"
-#include "benchmark/s3/S3Config.hpp"
-#include "benchmark/s3/S3Logger.hpp"
 #include "benchmark/cli/CliArgs.hpp"
 
 namespace benchmark::cli {
@@ -32,8 +30,8 @@ namespace benchmark::cli {
             std::cerr << "Invalid benchmark type argument." << std::endl;
             return 1;
         }
-        logger.print_config_params(config);
         logger.print_ec2_config(config);
+        logger.print_config_params(config);
         switch (bench_type.value()) {
             case S3:
                 return run_s3(std::move(config), logger);

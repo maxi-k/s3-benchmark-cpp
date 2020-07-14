@@ -9,7 +9,7 @@
 
 #include <gflags/gflags.h>
 #include "benchmark/Config.hpp"
-#include "benchmark/s3/S3Config.hpp"
+#include "benchmark/s3/S3Benchmark.hpp"
 
 namespace benchmark::cli {
 
@@ -112,7 +112,7 @@ namespace benchmark::cli {
         return {};
     }
 
-}  // namespace benchmark
+}  // namespace benchmark::cli
 
 #endif // _BENCHMARK_CLIARGS_HPP
 

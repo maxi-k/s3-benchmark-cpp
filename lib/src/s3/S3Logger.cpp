@@ -2,7 +2,7 @@
 // Created by maxi on 08.06.20.
 //
 
-#include "benchmark/s3/S3Logger.hpp"
+#include "benchmark/s3/S3Benchmark.hpp"
 #include "benchmark/Util.hpp"
 
 namespace benchmark::s3 {
@@ -33,4 +33,5 @@ namespace benchmark::s3 {
         auto bytes = format::byte_format(params.payload_size * 1.0);
         out << "\nDownload performance with \033[1;33m" <<  bytes << "\033[0m objects\n" << std::endl;
     }
+
 }  // namespace benchmark::s3
