@@ -8,20 +8,27 @@ namespace benchmark::cpu {
     CpuBenchmark::CpuBenchmark(const CpuConfig &config)
         : config(config) { }
     // --------------------------------------------------------------------------------
+    // make sure the measured operations are not optimized away by the compiler
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
+    // comparison + increment + N * (op + assignment)
+    // ignoring jump b/c of branch prediction
+    static const size_t OPS_PER_LOOP = 4;
+    inline void do_iterations(size_t &iterations) {
+        size_t tmp1 = 0;
+        size_t tmp2 = 1ul << 27ul;
+        for (size_t i = 0; i < iterations; ++i) { // 2 instructions
+            tmp1 += tmp2; // 2 instructions
+        }
+    }
+#pragma GCC pop_options
+    // --------------------------------------------------------------------------------
     RunResults CpuBenchmark::do_run(const RunParameters &params) const {
-        static const uint64_t OPS_PER_LOOP = 10;
         auto iterations = params.num_ops / OPS_PER_LOOP;
         std::vector<clock::duration> durations(params.samples);
         for (uint64_t n_sample = 0; n_sample < params.samples; ++n_sample) {
-            uint64_t ops_tmp1 = 0;
-            uint64_t ops_tmp2 = 100;
             auto t_start = clock::now();
-            for (uint64_t i = 0; i < iterations; ++i) {
-                ops_tmp1 += ops_tmp2;
-                ops_tmp1 += ops_tmp1;
-                ops_tmp2 += 33;
-                ops_tmp1 -= ops_tmp2;
-            }
+            do_iterations(iterations);
             auto t_end = clock::now();
             durations[n_sample] = t_end - t_start;
         }
