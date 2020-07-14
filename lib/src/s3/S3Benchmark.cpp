@@ -15,12 +15,12 @@
 #include <algorithm>
 #include <thread>
 
-#include "benchmark/Config.hpp"
-#include "benchmark/Types.hpp"
+#include "benchmark/s3/S3Config.hpp"
+#include "benchmark/s3/S3Types.hpp"
 
 namespace benchmark::s3 {
 
-    S3Benchmark::S3Benchmark(const Config &config)
+    S3Benchmark::S3Benchmark(const S3Config &config)
             : config(config)
             , client(Aws::S3::S3Client(config.aws_config())) {
     }
@@ -130,7 +130,7 @@ namespace benchmark::s3 {
         };
     }
 
-    void S3Benchmark::run_full_benchmark(Logger &logger) const {
+    void S3Benchmark::run_full_benchmark(S3Logger &logger) const {
         // TODO: consider config.payloads_step
         auto params = RunParameters{ config.samples, 1, 0 };
         for (size_t payload_size = config.payloads_min; payload_size <= config.payloads_max; payload_size *= 2) {

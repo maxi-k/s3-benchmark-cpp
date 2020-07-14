@@ -1,33 +1,52 @@
 //
 // Created by Maximilian Kuschewski on 2020-05-06
 //
+#include <fstream>
 #include "benchmark/s3/S3Benchmark.hpp"
+#include "benchmark/s3/S3Config.hpp"
+#include "benchmark/s3/S3Logger.hpp"
 #include "benchmark/cli/CliArgs.hpp"
-#include "benchmark/cli/CliLogger.hpp"
 
 namespace benchmark::cli {
-    void run_s3(const benchmark::Config &config) {
+    int run_s3(Config &&bare_config, Logger &bare_logger) {
+        Aws::SDKOptions options;
+        Aws::InitAPI(options);
+        auto config = s3::S3Config(std::move(bare_config));
+        auto logger = s3::S3Logger(bare_logger);
         auto bm = s3::S3Benchmark(config);
-        auto void_log = Logger();
-        auto cli_log = CliLogger(std::cout);
-        cli_log.print_config_params(config);
-        cli_log.print_ec2_config(config);
         if (config.dry_run) {
             // TODO: print dry run
         } else {
-            bm.run_full_benchmark(config.quiet ? void_log : cli_log);
+            bm.run_full_benchmark(logger);
         }
+        Aws::ShutdownAPI(options);
+        return 0;
     }
+
+    int run(int *argc, char ***argv) {
+        auto config = config_from_flags(argc, argv);
+        auto nullstream = std::ostream(nullptr);
+        auto logger = Logger(config.quiet ? nullstream : std::cout);
+        auto bench_type = get_parsed_bench_type();
+        if (!bench_type.has_value()) {
+            std::cerr << "Invalid benchmark type argument." << std::endl;
+            return 1;
+        }
+        logger.print_config_params(config);
+        logger.print_ec2_config(config);
+        switch (bench_type.value()) {
+            case S3:
+                return run_s3(std::move(config), logger);
+            case CPU: // TODO
+            case MEMORY: // TODO
+            case STORAGE: // TODO
+                return 1;
+        }
+        return 0;
+    }
+
 }
 
 int main(int argc, char** argv) {
-    // Initialize AWS SDK
-    Aws::SDKOptions options;
-    Aws::InitAPI(options);
-    // Read config, run benchmark
-    auto config = benchmark::cli::config_from_flags(&argc, &argv);
-    benchmark::cli::run_s3(config);
-    // Shutdown API, flush cout
-    Aws::ShutdownAPI(options);
-    return 0;
+    return benchmark::cli::run(&argc, &argv);
 }

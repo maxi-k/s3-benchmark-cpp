@@ -42,20 +42,9 @@ namespace benchmark {
     };
 
     class Config : public ConfigParameters, public EC2Config {
-        Aws::Client::ClientConfiguration client_config;
-
         void sanitize_params();
-        void sanitize_client_config();
-
     public:
-        inline const static char* DEFAULT_REGION = "eu-central-1";
-        inline const static char* DEFAULT_BUCKET_NAME = "masters-thesis-mk";
-        inline const static char* DEFAULT_OBJECT_NAME = "benchmark/largefile.bin";
-
         explicit Config(ConfigParameters &&config);
-
-        const Aws::Client::ClientConfiguration& aws_config() const;
-        Aws::String region_name() const;
     };
 }
 

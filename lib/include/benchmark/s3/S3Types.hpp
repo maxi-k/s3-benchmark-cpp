@@ -10,9 +10,9 @@
 #include <vector>
 #include <string>
 #include <sstream>
-#include "Util.hpp"
+#include "benchmark/Util.hpp"
 
-namespace benchmark {
+namespace benchmark::s3 {
     using latency_t = std::chrono::duration<size_t, std::ratio<1, 1000>>;
     struct Latency {
         latency_t first_byte;
@@ -75,6 +75,6 @@ namespace benchmark {
             this->latency_sum = l_sum;
         }
     };
-}
+}  // namespace benchmark::s3
 
 #endif  // _BENCHMARK_TYPES_HPP

@@ -36,15 +36,6 @@ namespace benchmark {
         };
     }
 
-    namespace stream {
-        class VoidBuffer : public std::streambuf {
-        public:
-            inline int overflow(int c) override {
-                return c;
-            }
-        };
-    }
-
     namespace format {
         // Not using c++ 20 std::format
         // from https://stackoverflow.com/questions/2342162/stdstring-formatting-like-sprintf

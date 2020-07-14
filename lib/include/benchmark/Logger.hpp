@@ -6,21 +6,22 @@
 #define _BENCHMARK_LOGGER_HPP
 
 #include <ostream>
-#include "Types.hpp"
+#include "benchmark/s3/S3Types.hpp"
 #include "Config.hpp"
 
 namespace benchmark {
-class Logger {
-public:
-    virtual void print_run_header() const {}
-    virtual void print_run_footer() const {}
-    virtual void print_run_stats(const RunStats &stats) const {}
-    virtual void print_run_params(const RunParameters &params) const {}
-    virtual void print_config_params(const ConfigParameters &config) const {}
-    virtual void print_ec2_config(const EC2Config &config) const {}
-};
-
-}  // namespace benchmark::cli
+    class Logger {
+    protected:
+        std::ostream &out;
+        template<typename S, typename T> inline void print_conf_var(S &name, T &var) const  {
+            out << "| \033[1m" << name << "\033[0m\t\t:\t" << var << "\033[59G|\n";
+        }
+    public:
+        explicit Logger(std::ostream &stream) : out(stream) {}
+        void print_config_params(const ConfigParameters &config) const;
+        void print_ec2_config(const EC2Config &config) const;
+    };
+}  // namespace benchmark
 
 
 #endif  // _BENCHMARK_LOGGER_HPP
