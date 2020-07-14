@@ -1,13 +1,13 @@
 //
 // Created by Maximilian Kuschewski on 07.06.20.
 //
-#include "s3benchmark/Config.hpp"
+#include "benchmark/Config.hpp"
 #include <aws/core/config/AWSProfileConfigLoader.h>
 #include <algorithm>
 #include <utility>
 #include <exception>
 
-namespace s3benchmark {
+namespace benchmark {
     Config::Config(ConfigParameters &&parameters)
         : client_config()
         , ConfigParameters(std::move(parameters)) {
@@ -80,4 +80,4 @@ namespace s3benchmark {
         this->hw_thread_count = hardware::thread_count();
     }
 
-}  // namespace s3benchmark
+}  // namespace benchmark

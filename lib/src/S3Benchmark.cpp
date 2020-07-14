@@ -1,7 +1,7 @@
 //
 // Created by Maximilian Kuschewski on 2020-05-06
 //
-#include "s3benchmark/Benchmark.hpp"
+#include "benchmark/s3/S3Benchmark.hpp"
 #include <aws/s3/model/HeadObjectRequest.h>
 #include <aws/s3/model/GetObjectRequest.h>
 
@@ -15,24 +15,24 @@
 #include <algorithm>
 #include <thread>
 
-#include "s3benchmark/Config.hpp"
-#include "s3benchmark/Types.hpp"
+#include "benchmark/Config.hpp"
+#include "benchmark/Types.hpp"
 
-namespace s3benchmark {
+namespace benchmark::s3 {
 
-    Benchmark::Benchmark(const Config &config)
+    S3Benchmark::S3Benchmark(const Config &config)
             : config(config)
             , client(Aws::S3::S3Client(config.aws_config())) {
     }
 
-    void Benchmark::list_buckets() const {
+    void S3Benchmark::list_buckets() const {
         auto resp = client.ListBuckets();
         for (auto& bucket : resp.GetResult().GetBuckets()) {
             std::cout << "Found bucket: " << bucket.GetName() << std::endl;
         }
     }
 
-    size_t Benchmark::fetch_object_size() const {
+    size_t S3Benchmark::fetch_object_size() const {
         auto req = Aws::S3::Model::HeadObjectRequest()
                 .WithBucket(config.bucket_name)
                 .WithKey(config.object_name);
@@ -44,14 +44,14 @@ namespace s3benchmark {
         return len;
     }
 
-    [[nodiscard]] inline latency_t Benchmark::fetch_object(const Aws::S3::Model::GetObjectRequest &req) const {
+    [[nodiscard]] inline latency_t S3Benchmark::fetch_object(const Aws::S3::Model::GetObjectRequest &req) const {
         auto start = clock::now();
         client.GetObject(req);
         auto end = clock::now();
         return std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     }
 
-    latency_t Benchmark::fetch_range(const ByteRange &range, char* outbuf, size_t bufsize) const {
+    latency_t S3Benchmark::fetch_range(const ByteRange &range, char* outbuf, size_t bufsize) const {
         auto req = Aws::S3::Model::GetObjectRequest()
                 .WithBucket(config.bucket_name)
                 .WithKey(config.object_name)
@@ -67,7 +67,7 @@ namespace s3benchmark {
         return this->fetch_object(req);
     }
 
-    ByteRange Benchmark::random_range_in(size_t size, size_t max_value) {
+    ByteRange S3Benchmark::random_range_in(size_t size, size_t max_value) {
         if (size > max_value) {
             throw std::runtime_error("Cannot create byte range larger than max size.");
         }
@@ -75,7 +75,7 @@ namespace s3benchmark {
         return { offset, offset + size };
     }
 
-    RunResults Benchmark::do_run(RunParameters &params) const {
+    RunResults S3Benchmark::do_run(RunParameters &params) const {
         auto max_obj_size = this->fetch_object_size();
 
         std::vector<char> outbuf(params.thread_count * params.payload_size);
@@ -130,7 +130,7 @@ namespace s3benchmark {
         };
     }
 
-    void Benchmark::run_full_benchmark(Logger &logger) const {
+    void S3Benchmark::run_full_benchmark(Logger &logger) const {
         // TODO: consider config.payloads_step
         auto params = RunParameters{ config.samples, 1, 0 };
         for (size_t payload_size = config.payloads_min; payload_size <= config.payloads_max; payload_size *= 2) {
@@ -148,4 +148,4 @@ namespace s3benchmark {
         }
         // TODO: csv upload
     }
-}  // namespace s3benchmark
+}  // namespace benchmark::s3

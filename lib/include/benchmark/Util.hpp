@@ -2,8 +2,8 @@
 // Created by Maximilian Kuschewski on 07.06.20.
 //
 
-#ifndef _S3BENCHMARK_UTIL_HPP
-#define _S3BENCHMARK_UTIL_HPP
+#ifndef _BENCHMARK_UTIL_HPP
+#define _BENCHMARK_UTIL_HPP
 
 #include <thread>
 #include <random>
@@ -11,7 +11,7 @@
 
 #include <curl/curl.h>
 
-namespace s3benchmark {
+namespace benchmark {
     namespace hardware {
         inline size_t thread_count() noexcept {
             return std::max(std::thread::hardware_concurrency(), 1u);
@@ -100,4 +100,4 @@ namespace s3benchmark {
     }
 }
 
-#endif //_S3BENCHMARK_UTIL_HPP
+#endif //_BENCHMARK_UTIL_HPP

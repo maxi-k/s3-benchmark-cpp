@@ -1,5 +1,0 @@
-aes-cbc 256b 937,8 MiB/s 2895,3 MiB/s
-
-Rome
-# Algorithm | Key | Encryption | Decryption
-aes-cbc 128b 537.2 MiB/s 1951.9 MiB/s

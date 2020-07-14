@@ -2,13 +2,13 @@
 // Created by maxi on 08.06.20.
 //
 
-#ifndef _S3BENCHMARK_CLILOGGER_HPP
-#define _S3BENCHMARK_CLILOGGER_HPP
+#ifndef _BENCHMARK_CLILOGGER_HPP
+#define _BENCHMARK_CLILOGGER_HPP
 
-#include "s3benchmark/Logger.hpp"
-#include "s3benchmark/Types.hpp"
+#include "benchmark/Logger.hpp"
+#include "benchmark/Types.hpp"
 
-namespace s3benchmark {
+namespace benchmark {
     class CliLogger : public Logger {
         std::ostream &out;
         template<typename S, typename T> inline void print_conf_var(S &name, T &var) const  {
@@ -23,6 +23,6 @@ namespace s3benchmark {
         void print_config_params(const ConfigParameters &config) const override;
         void print_ec2_config(const EC2Config &config) const override;
     };
-}  // namespace s3benchmark::cli
+}  // namespace benchmark::cli
 
-#endif  //_S3BENCHMARK_CLILOGGER_HPP
+#endif  //_BENCHMARK_CLILOGGER_HPP

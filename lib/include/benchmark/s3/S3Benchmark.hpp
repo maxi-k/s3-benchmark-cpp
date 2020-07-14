@@ -9,20 +9,20 @@
 #include <ratio>
 #include <aws/core/Aws.h>
 #include <aws/s3/S3Client.h>
-#include "Config.hpp"
-#include "Logger.hpp"
+#include "benchmark/Config.hpp"
+#include "benchmark/Logger.hpp"
 
-namespace s3benchmark {
+namespace benchmark::s3 {
     using ObjectHead = Aws::S3::Model::HeadObjectOutcome;
 
-    class Benchmark {
+    class S3Benchmark {
         using clock = std::chrono::steady_clock;
 
         const Config &config;
         Aws::S3::S3Client client;
 
     public:
-        explicit Benchmark(const Config &config);
+        explicit S3Benchmark(const Config &config);
 
         void list_buckets() const;
         [[nodiscard]] size_t fetch_object_size() const;

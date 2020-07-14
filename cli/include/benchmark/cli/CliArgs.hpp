@@ -1,16 +1,16 @@
 //
 // Created by Maximilian Kuschewski on 2020-05-06
 //
-#ifndef _S3BENCHMARK_CLIARGS_HPP
-#define _S3BENCHMARK_CLIARGS_HPP
+#ifndef _BENCHMARK_CLIARGS_HPP
+#define _BENCHMARK_CLIARGS_HPP
 
 #include <thread>
 #include <exception>
 
 #include <gflags/gflags.h>
-#include "s3benchmark/Config.hpp"
+#include "benchmark/Config.hpp"
 
-namespace s3benchmark::cli {
+namespace benchmark::cli {
 
         #pragma clang diagnostic push
         #pragma ide diagnostic ignored "cert-err58-cpp"
@@ -84,9 +84,9 @@ namespace s3benchmark::cli {
             });
         }
 
-    }  // namespace s3benchmark
+    }  // namespace benchmark
 
-#endif // _S3BENCHMARK_CLIARGS_HPP
+#endif // _BENCHMARK_CLIARGS_HPP
 
 
 #pragma clang diagnostic pop

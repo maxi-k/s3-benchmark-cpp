@@ -12,6 +12,13 @@ AWS_INSTANCE=$2
 PROGRAM_FILE=${3:-./cmake-build-cli-docker/s3benchmark_cli_exec}
 AWS_USER=${4:-ubuntu}
 
+cat > /tmp/install-perf <<EOF 
+  sudo apt update
+  sudo apt install linux-tools-common
+  sudo apt install linux-tools-4.15.0-1065-aws
+EOF
+chmod ug+x /tmp/install-perf
 
+rsync --progress -e "ssh -i $SSH_KEY" /tmp/install-perf $AWS_USER@$AWS_INSTANCE:/home/$AWS_USER/install-perf
 rsync --progress -e "ssh -i $SSH_KEY" $PROGRAM_FILE $AWS_USER@$AWS_INSTANCE:/home/$AWS_USER/s3benchmark
 ssh -i $SSH_KEY $AWS_USER@$AWS_INSTANCE

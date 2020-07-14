@@ -1,8 +1,8 @@
 # ---------------------------------------------------------------------------
-# S3 Benchmark
+# Benchmark
 # ---------------------------------------------------------------------------
 
-project(S3Benchmark LANGUAGES C CXX ASM)
+project(Benchmark LANGUAGES C CXX ASM)
 cmake_minimum_required(VERSION 3.10.2)
 
 set(CMAKE_CXX_STANDARD 17)

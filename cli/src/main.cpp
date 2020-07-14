@@ -1,13 +1,13 @@
 //
 // Created by Maximilian Kuschewski on 2020-05-06
 //
-#include "s3benchmark/Benchmark.hpp"
-#include "s3benchmark/cli/CliArgs.hpp"
-#include "s3benchmark/cli/CliLogger.hpp"
+#include "benchmark/s3/S3Benchmark.hpp"
+#include "benchmark/cli/CliArgs.hpp"
+#include "benchmark/cli/CliLogger.hpp"
 
-namespace s3benchmark::cli {
-    void run(const s3benchmark::Config &config) {
-        auto bm = Benchmark(config);
+namespace benchmark::cli {
+    void run_s3(const benchmark::Config &config) {
+        auto bm = s3::S3Benchmark(config);
         auto void_log = Logger();
         auto cli_log = CliLogger(std::cout);
         cli_log.print_config_params(config);
@@ -25,8 +25,8 @@ int main(int argc, char** argv) {
     Aws::SDKOptions options;
     Aws::InitAPI(options);
     // Read config, run benchmark
-    auto config = s3benchmark::cli::config_from_flags(&argc, &argv);
-    s3benchmark::cli::run(config);
+    auto config = benchmark::cli::config_from_flags(&argc, &argv);
+    benchmark::cli::run_s3(config);
     // Shutdown API, flush cout
     Aws::ShutdownAPI(options);
     return 0;

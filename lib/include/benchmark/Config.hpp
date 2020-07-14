@@ -8,7 +8,7 @@
 #include <aws/core/Aws.h>
 #include <aws/core/client/ClientConfiguration.h>
 
-namespace s3benchmark {
+namespace benchmark {
     using config_t = Aws::Client::ClientConfiguration;
 
     struct ConfigParameters {

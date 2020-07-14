@@ -2,10 +2,10 @@
 // Created by maxi on 08.06.20.
 //
 
-#include "s3benchmark/cli/CliLogger.hpp"
-#include "s3benchmark/Util.hpp"
+#include "benchmark/cli/CliLogger.hpp"
+#include "benchmark/Util.hpp"
 
-namespace s3benchmark {
+namespace benchmark {
 
     CliLogger::CliLogger(std::ostream &output) : out(output) {}
 
@@ -67,4 +67,4 @@ namespace s3benchmark {
         out << "+---------------------------------------------------------+\n";
     }
 
-}  // namespace s3benchmark::cli
+}  // namespace benchmark::cli

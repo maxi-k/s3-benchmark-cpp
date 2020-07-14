@@ -2,8 +2,8 @@
 // Created by maxi on 08.06.20.
 //
 
-#ifndef _S3BENCHMARK_TYPES_HPP
-#define _S3BENCHMARK_TYPES_HPP
+#ifndef _BENCHMARK_TYPES_HPP
+#define _BENCHMARK_TYPES_HPP
 
 #include <chrono>
 #include <ratio>
@@ -12,7 +12,7 @@
 #include <sstream>
 #include "Util.hpp"
 
-namespace s3benchmark {
+namespace benchmark {
     using latency_t = std::chrono::duration<size_t, std::ratio<1, 1000>>;
     struct Latency {
         latency_t first_byte;
@@ -77,4 +77,4 @@ namespace s3benchmark {
     };
 }
 
-#endif  // _S3BENCHMARK_TYPES_HPP
+#endif  // _BENCHMARK_TYPES_HPP

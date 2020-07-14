@@ -5,3 +5,7 @@ doc/perf
 
 # IDE Folders
 .idea/
+.ccls-cache
+
+# Temp Files
+log/
