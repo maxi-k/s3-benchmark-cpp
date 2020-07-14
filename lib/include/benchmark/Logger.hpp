@@ -20,6 +20,15 @@ namespace benchmark {
         void print_config_params(const ConfigParameters &config) const;
         void print_ec2_config(const EC2Config &config) const;
     };
+
+    template<typename Params, typename Stats>
+    class RunLogger {
+    public:
+        virtual void print_run_header() const = 0;
+        virtual void print_run_footer() const = 0;
+        virtual void print_run_stats(const Stats &stats) const = 0;
+        virtual void print_run_params(const Params &params) const = 0;
+    };
 }  // namespace benchmark
 
 #endif  // _BENCHMARK_LOGGER_HPP

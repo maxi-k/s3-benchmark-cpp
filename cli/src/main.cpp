@@ -3,9 +3,11 @@
 //
 #include <fstream>
 #include "benchmark/s3/S3Benchmark.hpp"
+#include "benchmark/cpu/CpuBenchmark.hpp"
 #include "benchmark/cli/CliArgs.hpp"
 
 namespace benchmark::cli {
+    // --------------------------------------------------------------------------------
     int run_s3(Config &&bare_config, Logger &bare_logger) {
         Aws::SDKOptions options;
         Aws::InitAPI(options);
@@ -20,7 +22,15 @@ namespace benchmark::cli {
         Aws::ShutdownAPI(options);
         return 0;
     }
-
+    // --------------------------------------------------------------------------------
+    int run_cpu(Config &&bare_config, Logger &bare_logger) {
+        auto config = cpu::CpuConfig(std::move(bare_config));
+        auto logger = cpu::CpuLogger(bare_logger);
+        auto bm = cpu::CpuBenchmark(config);
+        bm.run_full_benchmark(logger);
+        return 0;
+    }
+    // --------------------------------------------------------------------------------
     int run(int *argc, char ***argv) {
         auto config = config_from_flags(argc, argv);
         auto nullstream = std::ostream(nullptr);
@@ -35,7 +45,8 @@ namespace benchmark::cli {
         switch (bench_type.value()) {
             case S3:
                 return run_s3(std::move(config), logger);
-            case CPU: // TODO
+            case CPU:
+                return run_cpu(std::move(config), logger);
             case MEMORY: // TODO
             case STORAGE: // TODO
                 return 1;

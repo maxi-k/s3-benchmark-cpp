@@ -12,6 +12,9 @@
 #include <curl/curl.h>
 
 namespace benchmark {
+
+    using clock = std::chrono::steady_clock;
+
     namespace hardware {
         inline size_t thread_count() noexcept {
             return std::max(std::thread::hardware_concurrency(), 1u);
@@ -23,7 +26,14 @@ namespace benchmark {
         inline static const size_t mib = 1024 * kib;
         inline static const size_t gib = 1024 * mib;
 
-        inline static const size_t ms_per_sec = 1000;
+        inline static const size_t kilo = 1000;
+        inline static const size_t mega = 1000 * kilo;
+        inline static const size_t giga = 1000 * mega;
+
+        inline static const size_t ms_per_sec  = 1000;
+        inline static const size_t mys_per_sec = 1000 * ms_per_sec;
+        inline static const size_t ns_per_sec  = 1000 * mys_per_sec;
+
         inline static const size_t ms_per_min = 60 * ms_per_sec;
     }
 

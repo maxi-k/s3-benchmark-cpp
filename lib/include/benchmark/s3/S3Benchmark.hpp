@@ -17,7 +17,6 @@
 namespace benchmark::s3 {
     // --------------------------------------------------------------------------------
     using ObjectHead = Aws::S3::Model::HeadObjectOutcome;
-    using clock = std::chrono::steady_clock;
     using latency_t = std::chrono::duration<size_t, std::ratio<1, 1000>>;
     // --------------------------------------------------------------------------------
     struct Latency {
@@ -55,14 +54,13 @@ namespace benchmark::s3 {
         RunStats(const RunParameters &params, const RunResults &run);
     };
     // --------------------------------------------------------------------------------
-    class S3Logger : public Logger {
+    class S3Logger : public Logger, public RunLogger<RunParameters, RunStats> {
     public:
-        explicit S3Logger(std::ostream &output) : Logger(output) {}
         explicit S3Logger(Logger &logger) : Logger(logger) {}
-        void print_run_header() const;
-        void print_run_footer() const;
-        void print_run_stats(const s3::RunStats &stats) const;
-        void print_run_params(const s3::RunParameters &params) const;
+        void print_run_footer() const override;
+        void print_run_header() const override;
+        void print_run_stats(const RunStats &stats) const override;
+        void print_run_params(const RunParameters &params) const override;
     };
     // --------------------------------------------------------------------------------
     class S3Config : public Config {

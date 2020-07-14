@@ -31,7 +31,7 @@ namespace benchmark::cli {
     #pragma ide diagnostic ignored "cert-err58-cpp"
     // Define program arguments using gflags macros
     namespace flags {
-        DEFINE_string(bench, "s3", "Which benchmark to run. Options are s3, cpu, memory, storage.");
+        DEFINE_string(bench, "cpu", "Which benchmark to run. Options are s3, cpu, memory, storage.");
         DEFINE_validator(bench, &validate_bench);
 
         DEFINE_bool(quiet, false, "If true, log run results etc. to the cli.");
