@@ -27,6 +27,10 @@ namespace benchmark::cli {
         return false;
     }
 
+    bool validate_ram_mode(const char* flagname, const std::string &value) {
+        return value == "read" || value == "write" || value == "read-avx";
+    }
+
     #pragma clang diagnostic push
     #pragma ide diagnostic ignored "cert-err58-cpp"
     // Define program arguments using gflags macros
@@ -41,7 +45,7 @@ namespace benchmark::cli {
                     "It's advised to explicitly set threads-min and threads-max if this option is given.");
         DEFINE_double(threads_min, 1, // 1
                       "The minimum number of threads to use when fetching objects from S3 as a multiple of the hardware thread count.");
-        DEFINE_double(threads_max, 16, // 2
+        DEFINE_double(threads_max, 32, // 2
                       "The maximum number of threads to use when fetching objects from S3 as a multiple of the hardware thread count.");
         DEFINE_double(threads_step, 2,
                       "What increase in thread count per benchmark run is. Positive means multiplicative, negative means additive.");
@@ -72,6 +76,10 @@ namespace benchmark::cli {
         DEFINE_string(upload_stats, "",
                       "Upload CPU stats from during the benchmark to S3 as a CSV file.");
 
+        DEFINE_string(ram_mode, "read-avx",
+                      "Whether to test [read] or [write] or [read-avx] speed for the RAM benchmark.");
+        DEFINE_validator(ram_mode, &validate_ram_mode);
+
     } // namespace flags
 
     Config config_from_flags(int *argc, char ***argv) {
@@ -99,6 +107,7 @@ namespace benchmark::cli {
                               flags::FLAGS_throttling_mode,
                               flags::FLAGS_upload_csv,
                               flags::FLAGS_upload_stats,
+                              flags::FLAGS_ram_mode,
                       });
     }
 

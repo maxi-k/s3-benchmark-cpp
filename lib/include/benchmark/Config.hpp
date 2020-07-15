@@ -31,6 +31,7 @@ namespace benchmark {
         bool throttling_mode;
         std::string upload_csv;
         std::string upload_stats;
+        std::string ram_mode;
     };
 
     struct EC2Config {

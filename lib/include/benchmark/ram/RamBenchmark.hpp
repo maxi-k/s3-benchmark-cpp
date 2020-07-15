@@ -12,8 +12,9 @@
 
 namespace benchmark::ram {
     // --------------------------------------------------------------------------------
+    using byte_t = unsigned char;
     using time_resolution_t = std::chrono::nanoseconds;
-    using duration_t = std::chrono::duration<size_t, time_resolution_t::period>;
+    using duration_t = std::chrono::duration<double, time_resolution_t::period>;
     using second_t = std::chrono::duration<double>;
     // --------------------------------------------------------------------------------
     struct RamConfig : Config {
@@ -30,6 +31,7 @@ namespace benchmark::ram {
     struct RunResults {
         std::vector<duration_t> durations;
         duration_t overall_duration;
+        size_t bytes_read_sum;
     };
     // --------------------------------------------------------------------------------
     struct RunStats : RunParameters {
@@ -48,10 +50,25 @@ namespace benchmark::ram {
         void print_run_stats(const RunStats &stats) const override;
     };
     // --------------------------------------------------------------------------------
+    struct ThreadTaskParams {
+        size_t thread_id;
+        Barrier &barrier;
+        char* tspace1;
+        char* tspace2;
+        duration_t* durations;
+        size_t* read_count;
+        size_t* result;
+    };
+    // --------------------------------------------------------------------------------
     class RamBenchmark {
         const RamConfig &config;
+
+        static void thread_task_read(const RunParameters &params, ThreadTaskParams &t);
+        static void thread_task_write(const RunParameters &params, ThreadTaskParams &t);
+        static void thread_task_read_avx(const RunParameters &params, ThreadTaskParams &t);
     public:
         explicit RamBenchmark(const RamConfig &config);
+
         [[nodiscard]] RunResults do_run(const RunParameters &params, std::vector<char> *memspace1, std::vector<char> *memspace2) const;
         void run_full_benchmark(RamLogger &logger) const;
     };

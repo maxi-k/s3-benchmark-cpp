@@ -24,6 +24,7 @@ namespace benchmark {
         print_conf_var("Payloads Step", config.payloads_step);
         print_conf_var("Payloads Dir", payload_dir);
         out << "+------------------- \033[1;32mRAM CONFIGURATION\033[0m -------------------+\n";
+        print_conf_var("Ram Test Mode", config.ram_mode);
         print_conf_var("Payloads Min", config.payloads_min);
         print_conf_var("Payloads Max", config.payloads_max);
         print_conf_var("Payloads Step", config.payloads_step);
