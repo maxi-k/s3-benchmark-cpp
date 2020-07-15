@@ -106,9 +106,9 @@ namespace benchmark::s3 {
                auto idx_start = params.sample_count * t_id;
 
                if (t_id != params.thread_count - 1) {
-                   while (!do_start) { } // wait until all threads are started
+                   while (!do_start) { }  // wait until all threads are started
                } else {
-                   do_start = true; // the last started thread sets the start time
+                   do_start = true;  // the last started thread sets the start time
                    start_time = clock::now();
                }
                for (unsigned i = 0; i < params.sample_count; ++i) {

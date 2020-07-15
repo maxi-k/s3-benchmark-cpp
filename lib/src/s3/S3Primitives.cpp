@@ -1,6 +1,7 @@
 //
 // Created by maxi on 14.07.20.
 //
+#include <string>
 #include "benchmark/s3/S3Benchmark.hpp"
 namespace benchmark::s3 {
     // --------------------------------------------------------------------------------

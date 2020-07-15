@@ -2,8 +2,11 @@
 // Created by Maximilian Kuschewski on 2020-05-06
 //
 #include <fstream>
+#include <utility>
+
 #include "benchmark/s3/S3Benchmark.hpp"
 #include "benchmark/cpu/CpuBenchmark.hpp"
+#include "benchmark/ram/RamBenchmark.hpp"
 #include "benchmark/cli/CliArgs.hpp"
 
 namespace benchmark::cli {
@@ -31,6 +34,14 @@ namespace benchmark::cli {
         return 0;
     }
     // --------------------------------------------------------------------------------
+    int run_ram(Config &&bare_config, Logger &bare_logger) {
+        auto config = ram::RamConfig(std::move(bare_config));
+        auto logger = ram::RamLogger(bare_logger);
+        auto bm = ram::RamBenchmark(config);
+        bm.run_full_benchmark(logger);
+        return 0;
+    }
+    // --------------------------------------------------------------------------------
     int run(int *argc, char ***argv) {
         auto config = config_from_flags(argc, argv);
         auto nullstream = std::ostream(nullptr);
@@ -47,15 +58,17 @@ namespace benchmark::cli {
                 return run_s3(std::move(config), logger);
             case CPU:
                 return run_cpu(std::move(config), logger);
-            case MEMORY: // TODO
-            case STORAGE: // TODO
+            case RAM:
+                return run_ram(std::move(config), logger);
+            case SSD:  // TODO
                 return 1;
         }
         return 0;
     }
-
-}
-
+    // --------------------------------------------------------------------------------
+}  // namespace benchmark::cli
+// --------------------------------------------------------------------------------
 int main(int argc, char** argv) {
     return benchmark::cli::run(&argc, &argv);
 }
+// --------------------------------------------------------------------------------

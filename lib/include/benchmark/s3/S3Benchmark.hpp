@@ -17,7 +17,7 @@
 namespace benchmark::s3 {
     // --------------------------------------------------------------------------------
     using ObjectHead = Aws::S3::Model::HeadObjectOutcome;
-    using latency_t = std::chrono::duration<size_t, std::ratio<1, 1000>>;
+    using latency_t = std::chrono::duration<size_t, std::chrono::milliseconds::period>;
     // --------------------------------------------------------------------------------
     struct Latency {
         latency_t first_byte;

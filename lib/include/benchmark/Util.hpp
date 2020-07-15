@@ -9,18 +9,22 @@
 #include <random>
 #include <iostream>
 
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 #include <curl/curl.h>
 
 namespace benchmark {
-
+    // --------------------------------------------------------------------------------
     using clock = std::chrono::steady_clock;
-
+    // --------------------------------------------------------------------------------
     namespace hardware {
         inline size_t thread_count() noexcept {
             return std::max(std::thread::hardware_concurrency(), 1u);
         }
     }
-
+    // --------------------------------------------------------------------------------
     namespace units {
         inline static const size_t kib = 1024;
         inline static const size_t mib = 1024 * kib;
@@ -36,7 +40,7 @@ namespace benchmark {
 
         inline static const size_t ms_per_min = 60 * ms_per_sec;
     }
-
+    // --------------------------------------------------------------------------------
     namespace random {
         template<typename T>
         inline T in_range(T min, T max) {
@@ -45,7 +49,7 @@ namespace benchmark {
             return dist(engine);
         };
     }
-
+    // --------------------------------------------------------------------------------
     namespace format {
         // Not using c++ 20 std::format
         // from https://stackoverflow.com/questions/2342162/stdstring-formatting-like-sprintf
@@ -71,7 +75,7 @@ namespace benchmark {
             return string_format("%d", bytes);
         }
     }
-
+    // --------------------------------------------------------------------------------
     namespace http {
         inline size_t curl_callback(char *body, size_t size_mult, size_t nmemb, void *userdata) {
             auto size = size_mult * nmemb;
@@ -99,6 +103,91 @@ namespace benchmark {
             }
         }
     }
-}
+    // --------------------------------------------------------------------------------
+    namespace input {
+        // Code adapted from FDE bonus project
+        // https://gitlab.db.in.tum.de/maxi-k/fde19-bonusproject-1/-/raw/master/include/Input.hpp
+        class MemoryMappedFile {
+            int handle = -1;
+            uintptr_t size = 0;
+            char *mapping = nullptr;
+
+        public:
+            MemoryMappedFile() {}
+
+            MemoryMappedFile(const std::string &filename, const int &mode) { open(filename.data(), mode); }
+
+            ~MemoryMappedFile() { close(); }
+
+            inline bool open(const char *file, const int &mode) {
+                close();
+
+                // O_RDONLY, O_RDWR, O_WRONLY
+                int h = ::open(file, mode);
+                if (h < 0) return false;
+
+                lseek(h, 0, SEEK_END);
+                size = lseek(h, 0, SEEK_CUR);
+
+                auto m = mmap(nullptr, size, PROT_READ, MAP_SHARED, h, 0);
+                if (m == MAP_FAILED) {
+                    ::close(h);
+                    return false;
+                }
+
+                handle = h;
+                mapping = static_cast<char *>(m);
+                return true;
+            }
+
+            // TODO: evaluate whether this makes any difference for performance
+            inline void prepareRead() {
+                // From wc source: advise kernel that we will be reading the file
+                /* Advise the kernel of our access pattern.  */
+#ifdef __linux__
+                posix_fadvise(handle, 0, 0, 1);  // FDADVICE_SEQUENTIAL
+#endif
+            }
+
+            inline void close() {
+                if (handle >= 0) {
+                    munmap(mapping, size);
+                    ::close(handle);
+                    handle = -1;
+                }
+            }
+
+            inline const char *begin() const {
+                return mapping;
+            }
+
+            inline const char *end() const {
+                return mapping + size;
+            }
+        };  // MemoryMappedFile
+    }  // namespace input
+    // --------------------------------------------------------------------------------
+    template<typename T>
+    struct ValueStats {
+        T avg;
+        T sum;
+        T min;
+        T max;
+
+        ValueStats(const std::vector<T> &data_points, const T &zero_val) {
+            T v_min, v_max = data_points[0];
+            T v_sum = zero_val;
+            for (auto& dp : data_points) {
+                if (dp < v_min) v_min = dp;
+                if (dp > v_max) v_max = dp;
+                v_sum += dp;
+            }
+            this->min = v_min;
+            this->max = v_max;
+            this->sum = v_sum;
+            this->avg = v_sum / data_points.size();
+        }
+    };  // ValueStats
+}  // namespace benchmark
 
 #endif //_BENCHMARK_UTIL_HPP

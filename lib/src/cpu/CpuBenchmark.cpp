@@ -2,6 +2,7 @@
 // Created by maxi on 14.07.20.
 //
 #include "benchmark/cpu/CpuBenchmark.hpp"
+#include <vector>
 
 namespace benchmark::cpu {
     // --------------------------------------------------------------------------------
@@ -10,15 +11,15 @@ namespace benchmark::cpu {
     // --------------------------------------------------------------------------------
     // make sure the measured operations are not optimized away by the compiler
 #pragma GCC push_options
-#pragma GCC optimize ("O0")
+#pragma GCC optimize("O0")
     // comparison + increment + N * (op + assignment)
     // ignoring jump b/c of branch prediction
     static const size_t OPS_PER_LOOP = 4;
     inline void do_iterations(size_t &iterations) {
         size_t tmp1 = 0;
         size_t tmp2 = 1ul << 27ul;
-        for (size_t i = 0; i < iterations; ++i) { // 2 instructions
-            tmp1 += tmp2; // 2 instructions
+        for (size_t i = 0; i < iterations; ++i) {  // 2 instructions
+            tmp1 += tmp2;  // 2 instructions
         }
     }
 #pragma GCC pop_options

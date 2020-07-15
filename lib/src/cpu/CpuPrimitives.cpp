@@ -4,9 +4,10 @@
 
 #ifndef _BENCHMARK_CPUPRIMITIVES_HPP
 #define _BENCHMARK_CPUPRIMITIVES_HPP
+
+#include <chrono>
 #include "benchmark/cpu/CpuBenchmark.hpp"
 #include "benchmark/Util.hpp"
-#include <chrono>
 
 namespace benchmark::cpu {
     // --------------------------------------------------------------------------------
@@ -23,4 +24,4 @@ namespace benchmark::cpu {
     // --------------------------------------------------------------------------------
 }  // namespace benchmark::cpu
 
-#endif //_BENCHMARK_CPUPRIMITIVES_HPP
+#endif  // _BENCHMARK_CPUPRIMITIVES_HPP

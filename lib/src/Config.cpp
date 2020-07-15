@@ -3,6 +3,7 @@
 //
 #include "benchmark/Config.hpp"
 #include <aws/core/config/AWSProfileConfigLoader.h>
+#include <string>
 #include <algorithm>
 #include <utility>
 #include <exception>

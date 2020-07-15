@@ -14,9 +14,9 @@
 namespace benchmark::cli {
 
     enum BenchType {
-        S3, CPU, MEMORY, STORAGE
+        S3, CPU, RAM, SSD
     };
-    const static char* BENCH_TYPES[] = { "s3", "cpu", "memory", "storage" };
+    const static char* BENCH_TYPES[] = { "s3", "cpu", "ram", "ssd" };
 
     bool validate_bench(const char* flagname, const std::string &value) {
         for (auto& type : BENCH_TYPES) {
