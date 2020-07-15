@@ -10,7 +10,7 @@ ExternalProject_Add(
     cpplint_src
     PREFIX "vendor/cpplint"
     GIT_REPOSITORY "https://github.com/google/styleguide.git"
-    GIT_TAG 2282a0495b5a1f8b6c9fa5c6695be7b5377e805e
+    GIT_TAG 1b367e11d1ef3f3564c83f478ecd55fb2b8ba507
     TIMEOUT 10
     CONFIGURE_COMMAND ""
     BUILD_COMMAND ""
@@ -45,7 +45,7 @@ function(add_cpplint_target TARGET INPUT)
                 "--counting=detailed"
                 "--extensions=cc,h,cpp,hpp"
                 "--linelength=200"
-                "--filter=-legal/copyright,-runtime/references,-readability/todo"
+                "--filter=-legal/copyright,-runtime/references,-readability/todo,-build/c++11,-build/c++14"
                 ${INPUT}
         DEPENDS cpplint_src
         COMMENT "Running ${TARGET}"
