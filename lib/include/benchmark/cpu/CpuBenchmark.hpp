@@ -9,7 +9,7 @@
 #include "benchmark/Config.hpp"
 
 namespace benchmark::cpu {
-    struct CpuConfig : public Config {
+    struct CpuConfig : Config {
         explicit CpuConfig(Config &&config) : Config(std::move(config)) { }
     };
     // --------------------------------------------------------------------------------
@@ -29,7 +29,7 @@ namespace benchmark::cpu {
         RunStats(const RunParameters &params, const RunResults &results);
     };
     // --------------------------------------------------------------------------------
-    struct CpuLogger: public Logger, public RunLogger<RunParameters, RunStats> {
+    struct CpuLogger: Logger, RunLogger<RunParameters, RunStats> {
         explicit CpuLogger(std::ostream &output) : Logger(output) {}
         explicit CpuLogger(Logger &logger) : Logger(logger) {}
         void print_run_header() const override;

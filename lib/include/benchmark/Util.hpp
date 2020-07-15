@@ -7,8 +7,11 @@
 
 #include <thread>
 #include <random>
+#include <chrono>
 #include <iostream>
-
+#include <stdexcept>
+#include <mutex>
+#include <condition_variable>
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -39,6 +42,22 @@ namespace benchmark {
         inline static const size_t ns_per_sec  = 1000 * mys_per_sec;
 
         inline static const size_t ms_per_min = 60 * ms_per_sec;
+
+        template<typename ToPeriod, typename FromDuration>
+        inline std::chrono::duration<double, ToPeriod> duration_float(FromDuration from) {
+            std::chrono::duration<double, ToPeriod> result = from;
+            return result;
+        }
+
+        template<typename FromDuration>
+        inline std::chrono::duration<double, std::chrono::seconds::period> duration_seconds(FromDuration from) {
+            return duration_float<std::chrono::seconds::period>(from);
+        }
+
+        template<typename FromDuration>
+        inline std::chrono::duration<double, std::chrono::milliseconds::period> duration_milliseconds(FromDuration from) {
+            return duration_float<std::chrono::milliseconds::period>(from);
+        }
     }
     // --------------------------------------------------------------------------------
     namespace random {
@@ -188,6 +207,47 @@ namespace benchmark {
             this->avg = v_sum / data_points.size();
         }
     };  // ValueStats
+
+    // --------------------------------------------------------------------------------
+
+    // Adapted from https://stackoverflow.com/questions/38999911/what-is-the-best-way-to-realize-a-synchronization-barrier-between-threads
+    class Barrier {
+        std::mutex latch;
+        std::condition_variable condition;
+        size_t waiting;
+    public:
+        Barrier(size_t max_waiting)
+                : latch()
+                , condition()
+                , waiting(max_waiting) {
+            if (max_waiting == 0) {
+                throw std::runtime_error("Waiting for 0 threads is not allowed");
+            }
+        }
+        Barrier(const Barrier& barrier) = delete;
+        Barrier(Barrier&& barrier) = delete;
+        Barrier& operator=(const Barrier& barrier) = delete;
+        Barrier& operator=(Barrier&& barrier) = delete;
+        ~Barrier() noexcept(false) {
+            if (waiting != 0) {
+                throw std::runtime_error("There are threads waiting on a barrier about to be destroyed.");
+            }
+        }
+
+        void wait() {
+            std::unique_lock<std::mutex> lock(latch);
+            if(waiting == 0) {
+               throw std::runtime_error("Waiting with too many threads on barrier.");
+            }
+            if (--waiting == 0) {
+                condition.notify_all();
+            } else {
+                condition.wait(lock, [this]() {
+                    return 0 == waiting;
+                });
+            }
+        }
+    };
 }  // namespace benchmark
 
 #endif //_BENCHMARK_UTIL_HPP

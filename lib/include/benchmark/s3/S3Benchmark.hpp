@@ -19,11 +19,6 @@ namespace benchmark::s3 {
     using ObjectHead = Aws::S3::Model::HeadObjectOutcome;
     using latency_t = std::chrono::duration<size_t, std::chrono::milliseconds::period>;
     // --------------------------------------------------------------------------------
-    struct Latency {
-        latency_t first_byte;
-        latency_t last_byte;
-    };
-    // --------------------------------------------------------------------------------
     struct ByteRange {
         size_t first_byte;
         size_t last_byte;
@@ -42,7 +37,7 @@ namespace benchmark::s3 {
         latency_t overall_time;
     };
     // --------------------------------------------------------------------------------
-    struct RunStats : public RunParameters {
+    struct RunStats : RunParameters {
         double throughput_mbps;
         latency_t latency_avg;
         latency_t latency_sum;
@@ -54,8 +49,7 @@ namespace benchmark::s3 {
         RunStats(const RunParameters &params, const RunResults &run);
     };
     // --------------------------------------------------------------------------------
-    class S3Logger : public Logger, public RunLogger<RunParameters, RunStats> {
-    public:
+    struct S3Logger : Logger, RunLogger<RunParameters, RunStats> {
         explicit S3Logger(Logger &logger) : Logger(logger) {}
         void print_run_footer() const override;
         void print_run_header() const override;
@@ -66,7 +60,6 @@ namespace benchmark::s3 {
     class S3Config : public Config {
         Aws::Client::ClientConfiguration client_config;
         void sanitize_client_config();
-
     public:
         inline const static char* DEFAULT_BUCKET_NAME = "masters-thesis-mk";
         inline const static char* DEFAULT_OBJECT_NAME = "benchmark/largefile.bin";
@@ -80,7 +73,6 @@ namespace benchmark::s3 {
     class S3Benchmark {
         const S3Config &config;
         Aws::S3::S3Client client;
-
     public:
         explicit S3Benchmark(const S3Config &config);
 

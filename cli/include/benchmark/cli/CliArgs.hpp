@@ -31,7 +31,7 @@ namespace benchmark::cli {
     #pragma ide diagnostic ignored "cert-err58-cpp"
     // Define program arguments using gflags macros
     namespace flags {
-        DEFINE_string(bench, "cpu", "Which benchmark to run. Options are s3, cpu, memory, storage.");
+        DEFINE_string(bench, "ram", "Which benchmark to run. Options are s3, cpu, memory, storage.");
         DEFINE_validator(bench, &validate_bench);
 
         DEFINE_bool(quiet, false, "If true, log run results etc. to the cli.");
@@ -39,21 +39,21 @@ namespace benchmark::cli {
         DEFINE_bool(threads_static, false,
                     "If true, interprete threads-min and threads-max as static counts instead of multiples of the hardware thread count.\n"
                     "It's advised to explicitly set threads-min and threads-max if this option is given.");
-        DEFINE_double(threads_min, 16, // 1
+        DEFINE_double(threads_min, 1, // 1
                       "The minimum number of threads to use when fetching objects from S3 as a multiple of the hardware thread count.");
-        DEFINE_double(threads_max, 32, // 2
+        DEFINE_double(threads_max, 16, // 2
                       "The maximum number of threads to use when fetching objects from S3 as a multiple of the hardware thread count.");
         DEFINE_double(threads_step, 2,
                       "What increase in thread count per benchmark run is. Positive means multiplicative, negative means additive.");
-        DEFINE_uint64(payloads_min, 10 * units::kib,
+        DEFINE_uint64(payloads_min, 8 * units::kib,
                       "The minimum object size to test, with 1 = 1 MB, and every increment is a double of the previous value.");
-        DEFINE_uint64(payloads_max, 160 * units::kib,
+        DEFINE_uint64(payloads_max, 128 * units::mib,
                       "The maximum object size to test, with 1 = 1 MB, and every increment is a double of the previous value.");
         DEFINE_uint64(payloads_step, 2,
                       "What the multiplicative increase in payload size per benchmark run is (size *= step). Must be > 1");
         DEFINE_bool(payloads_reverse, false,
                     "If true, start with the largest payload size first and decrease from there");
-        DEFINE_uint64(samples, 10,
+        DEFINE_uint64(samples, 100,
                       "The number of samples to collect for each test of a single object size per thread.");
         DEFINE_uint64(samples_cap, 7200,
                       "The maximum number of samples to collect for each test of a single object size.");
