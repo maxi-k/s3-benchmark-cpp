@@ -25,7 +25,7 @@ namespace benchmark::ram {
     struct RunParameters {
         size_t sample_count;
         size_t thread_count;
-        size_t payload_size;
+        size_t payload_words;
     };
     // --------------------------------------------------------------------------------
     struct RunResults {
@@ -53,8 +53,8 @@ namespace benchmark::ram {
     struct ThreadTaskParams {
         size_t thread_id;
         Barrier &barrier;
-        char* tspace1;
-        char* tspace2;
+        size_t* tspace1;
+        size_t* tspace2;
         duration_t* durations;
         size_t* read_count;
         size_t* result;
@@ -69,7 +69,7 @@ namespace benchmark::ram {
     public:
         explicit RamBenchmark(const RamConfig &config);
 
-        [[nodiscard]] RunResults do_run(const RunParameters &params, std::vector<char> *memspace1, std::vector<char> *memspace2) const;
+        [[nodiscard]] RunResults do_run(const RunParameters &params, size_t* memspace1, size_t* memspace2) const;
         void run_full_benchmark(RamLogger &logger) const;
     };
     // --------------------------------------------------------------------------------

@@ -19,10 +19,10 @@ namespace benchmark::ram {
         : config(config) { }
     // --------------------------------------------------------------------------------
     // From: https://codearcana.com/posts/2013/05/18/achieving-maximum-memory-bandwidth.html
-    inline void write_memory_rep_stosq(void* buffer, size_t size, int to_write) {
+    inline void write_memory_rep_stosq(void* buffer, size_t n_words, int to_write) {
         asm("cld\n"
             "rep stosq"
-        : : "D" (buffer), "c" (size / sizeof(size_t)), "a" (to_write) );
+        : : "D" (buffer), "c" (n_words), "a" (to_write) );
     }
     // --------------------------------------------------------------------------------
     void RamBenchmark::thread_task_write(const RunParameters &params, ThreadTaskParams &t) {
@@ -31,10 +31,10 @@ namespace benchmark::ram {
         for (size_t n_sample = 0; n_sample < params.sample_count; ++n_sample) {
             auto input = n_sample % 2 == 0 ? t.tspace1 : t.tspace2;
             auto t_start = clock::now();
-            write_memory_rep_stosq(input, params.payload_size, n_sample);
-            // memset(input, n_sample, params.payload_size);
+            // write_memory_rep_stosq(input, params.payload_words, n_sample);
+            memset(input, n_sample, params.payload_words * sizeof(size_t));
             auto t_end = clock::now();
-            read_sum += params.payload_size;
+            read_sum += params.payload_words * sizeof(size_t);
             t.durations[n_sample] = t_end - t_start;
         }
         *t.read_count = read_sum;
@@ -42,18 +42,16 @@ namespace benchmark::ram {
     // --------------------------------------------------------------------------------
     void RamBenchmark::thread_task_read(const RunParameters &params, ThreadTaskParams &t) {
         auto read_sum = 0ul;
-        auto tspace1 = reinterpret_cast<size_t*>(t.tspace1);
-        auto tspace2 = reinterpret_cast<size_t*>(t.tspace2);
         auto res = 0ul;
         t.barrier.wait();
         for (size_t n_sample = 0; n_sample < params.sample_count; ++n_sample) {
-            auto input = n_sample % 2 == 0 ? tspace1 : tspace2;
+            auto input = n_sample % 2 == 0 ? t.tspace1 : t.tspace2;
             auto t_start = clock::now();
-            for (size_t i = 0; i != params.payload_size / sizeof(size_t); ++i) {
+            for (size_t i = 0; i != params.payload_words; ++i) {
                 res += input[i];
             }
             auto t_end = clock::now();
-            read_sum += params.payload_size;
+            read_sum += params.payload_words * sizeof(size_t);
             t.durations[n_sample] = t_end - t_start;
         }
         *t.result = res;
@@ -67,19 +65,20 @@ namespace benchmark::ram {
         for (size_t n_sample = 0; n_sample < params.sample_count; ++n_sample) {
             auto input = n_sample % 2 == 0 ? t.tspace1 : t.tspace2;
             auto t_start = clock::now();
-            for (size_t i = 0; i != params.payload_size / sizeof(__m256i); ++i) {
+            auto r_factor = sizeof(__m256i) / sizeof(size_t);
+            for (size_t i = 0; i != params.payload_words / r_factor; ++i) {
                 auto block = _mm256_loadu_si256(reinterpret_cast<__m256i*>(input + i));
                 res = _mm256_add_epi64(res, block);
             }
             auto t_end = clock::now();
-            read_sum += params.payload_size;
+            read_sum += params.payload_words * sizeof(size_t);
             t.durations[n_sample] = t_end - t_start;
         }
         *t.result = res[0];
         *t.read_count = read_sum;
     }
     // --------------------------------------------------------------------------------
-    RunResults RamBenchmark::do_run(const RunParameters &params, std::vector<char> *memspace1, std::vector<char> *memspace2) const {
+    RunResults RamBenchmark::do_run(const RunParameters &params, size_t* memspace1, size_t* memspace2) const {
         // [ ...thread1_samples, ...thread2_samples, ...]
         std::vector<duration_t> durations(params.sample_count * params.thread_count);
         std::vector<size_t> read_counts(params.thread_count);
@@ -89,13 +88,13 @@ namespace benchmark::ram {
         std::vector<ThreadTaskParams> thread_params;
         std::vector<std::thread> threads;
         for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
-            auto idx_start = params.sample_count * t_id;
+            auto mem_idx = config.payloads_max * t_id / sizeof(size_t);
             thread_params.emplace_back(ThreadTaskParams{
                     t_id,
                     barrier,
-                    memspace1->data() + idx_start,
-                    memspace2->data() + idx_start,
-                    durations.data() + idx_start,
+                    memspace1 + mem_idx,
+                    memspace2 + mem_idx,
+                    durations.data() + params.sample_count * t_id,
                     read_counts.data() + t_id,
                     results.data() + t_id
             });
@@ -127,12 +126,18 @@ namespace benchmark::ram {
     }
     // --------------------------------------------------------------------------------
     void RamBenchmark::run_full_benchmark(RamLogger &logger) const {
-        auto params = RunParameters{ config.samples, 1, 0,  };
-        auto read_space1 = new std::vector<char>(config.payloads_max * config.threads_max);
-        auto read_space2 = new std::vector<char>(config.payloads_max * config.threads_max);
+        // Prepare memory spaces for the benchmark
+        auto space_words = (config.payloads_max * static_cast<size_t>(config.threads_max)) / sizeof(size_t);
+        auto read_space1 = new size_t[space_words];
+        auto read_space2 = new size_t[space_words];
+        for (size_t i = 0, size = space_words; i != size; ++i) {
+           read_space1[i] = i;
+           read_space2[i] = size - i;
+        }
         // TODO: consider config.payloads_step
+        auto params = RunParameters{ config.samples, 1, 0,  };
         for (size_t payload_size = config.payloads_min; payload_size <= config.payloads_max; payload_size *= 2) {
-            params.payload_size = payload_size;
+            params.payload_words = payload_size / sizeof(size_t);
             logger.print_run_params(params);
             logger.print_run_header();
             // TODO: consider config.threads_step
@@ -144,8 +149,8 @@ namespace benchmark::ram {
             }
             logger.print_run_footer();
         }
-        delete read_space1;
-        delete read_space2;
+        delete[] read_space1;
+        delete[] read_space2;
     }
     // --------------------------------------------------------------------------------
 }  // namespace benchmark::ram

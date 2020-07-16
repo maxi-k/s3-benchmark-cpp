@@ -31,7 +31,7 @@ namespace benchmark::ram {
     }
     // --------------------------------------------------------------------------------
     void RamLogger::print_run_params(const RunParameters &params) const {
-        auto bytes = format::byte_format(params.payload_size * 1.0);
+        auto bytes = format::byte_format(params.payload_words * sizeof(size_t) * 1.0);
         out << "\nRead Bandwidth with \033[1;33m" <<  bytes << "\033[0m chunks\n" << std::endl;
     }
     // --------------------------------------------------------------------------------

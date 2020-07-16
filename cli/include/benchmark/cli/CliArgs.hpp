@@ -49,7 +49,7 @@ namespace benchmark::cli {
                       "The maximum number of threads to use when fetching objects from S3 as a multiple of the hardware thread count.");
         DEFINE_double(threads_step, 2,
                       "What increase in thread count per benchmark run is. Positive means multiplicative, negative means additive.");
-        DEFINE_uint64(payloads_min, 8 * units::kib,
+        DEFINE_uint64(payloads_min, 32 * units::mib,
                       "The minimum object size to test, with 1 = 1 MB, and every increment is a double of the previous value.");
         DEFINE_uint64(payloads_max, 128 * units::mib,
                       "The maximum object size to test, with 1 = 1 MB, and every increment is a double of the previous value.");
