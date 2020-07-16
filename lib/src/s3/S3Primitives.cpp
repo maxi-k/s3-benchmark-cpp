@@ -6,8 +6,12 @@
 namespace benchmark::s3 {
     // --------------------------------------------------------------------------------
     RunStats::RunStats(const RunParameters &params, const RunResults &run)
-            : RunParameters(params), samples_sum(run.data_points.size()), duration(run.overall_time) {
-        latency_t l_min, l_max = run.data_points[0];
+            : RunParameters(params)
+            , samples_sum(run.data_points.size())
+            , download_sum(samples_sum * params.payload_size)
+            , duration(run.overall_time) {
+        latency_t l_min = run.data_points[0];
+        latency_t l_max = run.data_points[0];
         latency_t l_sum = latency_t::zero();
         for (auto &dp : run.data_points) {
             if (dp < l_min) l_min = dp;
@@ -15,12 +19,11 @@ namespace benchmark::s3 {
             l_sum += dp;
         }
         latency_t l_avg = l_sum / this->samples_sum;
-        this->download_sum = samples_sum * params.payload_size;
-        this->throughput_mbps = (download_sum * 1.0 / units::mib) / (duration.count() * 1.0 / units::ms_per_sec);
         this->latency_avg = l_avg;
         this->latency_min = l_min;
         this->latency_max = l_max;
         this->latency_sum = l_sum;
+        this->throughput_mbps = (download_sum * 1.0 / units::mib) / (duration.count() * 1.0 / units::ms_per_sec);
     }
     // --------------------------------------------------------------------------------
     std::string ByteRange::as_http_header() const {

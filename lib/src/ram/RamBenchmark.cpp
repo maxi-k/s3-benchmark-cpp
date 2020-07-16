@@ -2,15 +2,16 @@
 // Created by maxi on 15.07.20.
 //
 #include "benchmark/ram/RamBenchmark.hpp"
-#include <chrono>
-#include <vector>
-#include <algorithm>
 // AVX
-#include <immintrin.h>
 #include <emmintrin.h>
 #include <pmmintrin.h>
 #include <immintrin.h>
 #include <nmmintrin.h>
+
+#include <chrono>
+#include <vector>
+#include <algorithm>
+
 #include "benchmark/Util.hpp"
 
 namespace benchmark::ram {
@@ -65,8 +66,8 @@ namespace benchmark::ram {
         for (size_t n_sample = 0; n_sample < params.sample_count; ++n_sample) {
             auto input = n_sample % 2 == 0 ? t.tspace1 : t.tspace2;
             auto t_start = clock::now();
-            auto r_factor = sizeof(__m256i) / sizeof(size_t);
-            for (size_t i = 0; i != params.payload_words / r_factor; ++i) {
+            auto words_per_vector = sizeof(__m256i) / sizeof(size_t);
+            for (size_t i = 0; i != params.payload_words; i += words_per_vector) {
                 auto block = _mm256_loadu_si256(reinterpret_cast<__m256i*>(input + i));
                 res = _mm256_add_epi64(res, block);
             }
@@ -87,6 +88,7 @@ namespace benchmark::ram {
         Barrier barrier(params.thread_count + 1);
         std::vector<ThreadTaskParams> thread_params;
         std::vector<std::thread> threads;
+        auto fn = thread_task_map[config.ram_mode];
         for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
             auto mem_idx = config.payloads_max * t_id / sizeof(size_t);
             thread_params.emplace_back(ThreadTaskParams{
@@ -98,13 +100,6 @@ namespace benchmark::ram {
                     read_counts.data() + t_id,
                     results.data() + t_id
             });
-        }
-        auto fn = config.ram_mode == "read"
-                  ? &RamBenchmark::thread_task_read
-                  : config.ram_mode == "write"
-                    ? &RamBenchmark::thread_task_write
-                    : &RamBenchmark::thread_task_read_avx;
-        for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
             threads.emplace_back([&params, &thread_params, &fn, t_id]() { fn(params, thread_params[t_id]); });
         }
         clock::time_point start_time = clock::now();

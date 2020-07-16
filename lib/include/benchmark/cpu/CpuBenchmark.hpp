@@ -22,7 +22,7 @@ namespace benchmark::cpu {
         std::vector<clock::duration> exec_times;
     };
     // --------------------------------------------------------------------------------
-    struct RunStats : RunResults, RunParameters {
+    struct RunStats : RunParameters, RunResults {
         size_t total_ops;
         double total_duration;
         double clock_speed;

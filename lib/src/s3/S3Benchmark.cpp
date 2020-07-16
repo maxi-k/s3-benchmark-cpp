@@ -88,7 +88,7 @@ namespace benchmark::s3 {
             // return stream;
             return Aws::New<Aws::FStream>("S3Client", "/dev/null", std::ios_base::out);
         });
-        for (int i = 0; i < params.sample_count * params.thread_count; ++i) {
+        for (size_t i = 0; i < params.sample_count * params.thread_count; ++i) {
             auto req = Aws::S3::Model::GetObjectRequest()
                     .WithBucket(config.bucket_name)
                     .WithKey(config.object_name)

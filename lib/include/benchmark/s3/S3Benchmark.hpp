@@ -38,14 +38,14 @@ namespace benchmark::s3 {
     };
     // --------------------------------------------------------------------------------
     struct RunStats : RunParameters {
-        double throughput_mbps;
+        size_t samples_sum;
+        size_t download_sum;
+        latency_t duration;
         latency_t latency_avg;
         latency_t latency_sum;
         latency_t latency_min;
         latency_t latency_max;
-        latency_t duration;
-        size_t download_sum;
-        size_t samples_sum;
+        double throughput_mbps;
         RunStats(const RunParameters &params, const RunResults &run);
     };
     // --------------------------------------------------------------------------------

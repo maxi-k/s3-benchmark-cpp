@@ -1,8 +1,8 @@
 //
 // Created by Maximilian Kuschewski on 07.06.20.
 //
-#ifndef _S3BENCHMARK_CONFIG_HPP
-#define _S3BENCHMARK_CONFIG_HPP
+#ifndef _BENCHMARK_CONFIG_HPP
+#define _BENCHMARK_CONFIG_HPP
 
 #include "Util.hpp"
 #include <aws/core/Aws.h>
@@ -11,7 +11,14 @@
 namespace benchmark {
     using config_t = Aws::Client::ClientConfiguration;
 
+    enum BenchType { S3, CPU, RAM, SSD };
+    inline const char* BENCH_TYPE_NAMES[] = { "s3", "cpu", "ram", "ssd" };
+
+    enum RamTestMode { READ, WRITE, READ_AVX };
+    inline const char* RAM_MODE_NAMES[] = { "read", "write", "read-avx" };
+
     struct ConfigParameters {
+        BenchType bench_type;
         bool dry_run;
         bool quiet;
         bool threads_static;
@@ -31,7 +38,7 @@ namespace benchmark {
         bool throttling_mode;
         std::string upload_csv;
         std::string upload_stats;
-        std::string ram_mode;
+        RamTestMode ram_mode;
     };
 
     struct EC2Config {
@@ -49,4 +56,4 @@ namespace benchmark {
     };
 }
 
-#endif //_S3BENCHMARK_CONFIG_HPP
+#endif //_BENCHMARK_CONFIG_HPP

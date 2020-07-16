@@ -6,7 +6,6 @@
 #include <string>
 #include <algorithm>
 #include <utility>
-#include <exception>
 
 namespace benchmark {
 

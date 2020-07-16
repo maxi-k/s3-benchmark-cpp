@@ -6,6 +6,10 @@
 
 #include <thread>
 #include <exception>
+#include <optional>
+#include <assert.h>
+#include <vector>
+#include <initializer_list>
 
 #include <gflags/gflags.h>
 #include "benchmark/Config.hpp"
@@ -13,30 +17,31 @@
 
 namespace benchmark::cli {
 
-    enum BenchType {
-        S3, CPU, RAM, SSD
-    };
-    const static char* BENCH_TYPES[] = { "s3", "cpu", "ram", "ssd" };
-
-    bool validate_bench(const char* flagname, const std::string &value) {
-        for (auto& type : BENCH_TYPES) {
-            if (value == type) {
-                return true;
+    template<typename EnumType, typename Value, auto N, const char* (&Set)[N]>
+    struct EnumParser {
+        static std::optional<EnumType> member_to_enum(const Value &value) {
+            for (unsigned i = 0; i < N; ++i) {
+                if (Set[i] == value) {
+                    return static_cast<EnumType>(i);
+                }
             }
+            return std::nullopt;
         }
-        return false;
-    }
 
-    bool validate_ram_mode(const char* flagname, const std::string &value) {
-        return value == "read" || value == "write" || value == "read-avx";
-    }
+        static bool validate(const char* flagname, const Value &value) {
+            return member_to_enum(value).has_value();
+        }
+    };
+
+    using BENCH_TYPE_PARSER = EnumParser<BenchType, std::string, 4, BENCH_TYPE_NAMES>;
+    using RAM_MODE_PARSER = EnumParser<RamTestMode, std::string, 3, RAM_MODE_NAMES>;
 
     #pragma clang diagnostic push
     #pragma ide diagnostic ignored "cert-err58-cpp"
     // Define program arguments using gflags macros
     namespace flags {
         DEFINE_string(bench, "ram", "Which benchmark to run. Options are s3, cpu, memory, storage.");
-        DEFINE_validator(bench, &validate_bench);
+        DEFINE_validator(bench, BENCH_TYPE_PARSER::validate);
 
         DEFINE_bool(quiet, false, "If true, log run results etc. to the cli.");
         DEFINE_bool(dry_run, false, "If true, don't do any requests but do a dry run instead");
@@ -76,9 +81,14 @@ namespace benchmark::cli {
         DEFINE_string(upload_stats, "",
                       "Upload CPU stats from during the benchmark to S3 as a CSV file.");
 
-        DEFINE_string(ram_mode, "read-avx",
-                      "Whether to test [read] or [write] or [read-avx] speed for the RAM benchmark.");
-        DEFINE_validator(ram_mode, &validate_ram_mode);
+        DEFINE_string(ram_mode, "read",
+                      #ifdef __AVX2__
+                              "Whether to test [read] or [write] or [read-avx] speed for the RAM benchmark."
+#else
+                "Whether to test [read] or [write] or [read-avx] speed for the RAM benchmark."
+#endif
+                      );
+        DEFINE_validator(ram_mode, RAM_MODE_PARSER::validate);
 
     } // namespace flags
 
@@ -88,6 +98,7 @@ namespace benchmark::cli {
             throw std::runtime_error("More arguments given than necessary. Quitting.");
         }
         return Config({
+                              BENCH_TYPE_PARSER::member_to_enum(flags::FLAGS_bench).value(),
                               flags::FLAGS_dry_run,
                               flags::FLAGS_quiet,
                               flags::FLAGS_threads_static,
@@ -107,18 +118,8 @@ namespace benchmark::cli {
                               flags::FLAGS_throttling_mode,
                               flags::FLAGS_upload_csv,
                               flags::FLAGS_upload_stats,
-                              flags::FLAGS_ram_mode,
+                              RAM_MODE_PARSER::member_to_enum(flags::FLAGS_ram_mode).value()
                       });
-    }
-
-    std::optional<BenchType> get_parsed_bench_type() {
-        auto flag = flags::FLAGS_bench;
-        for (unsigned i = 0; i < sizeof(BENCH_TYPES); ++i) {
-            if (flag == BENCH_TYPES[i])   {
-                return static_cast<BenchType>(i);
-            }
-        }
-        return {};
     }
 
 }  // namespace benchmark::cli

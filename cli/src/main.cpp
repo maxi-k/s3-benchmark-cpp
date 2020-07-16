@@ -42,28 +42,20 @@ namespace benchmark::cli {
         return 0;
     }
     // --------------------------------------------------------------------------------
+    using runner_t = int (*)(Config &&bar_config, Logger &bare_logger);
+    static constexpr runner_t bench_runners[3] = {
+            [S3] = run_s3,
+            [CPU] = run_cpu,
+            [RAM] = run_ram
+    };
+    // --------------------------------------------------------------------------------
     int run(int *argc, char ***argv) {
         auto config = config_from_flags(argc, argv);
         auto nullstream = std::ostream(nullptr);
         auto logger = Logger(config.quiet ? nullstream : std::cout);
-        auto bench_type = get_parsed_bench_type();
-        if (!bench_type.has_value()) {
-            std::cerr << "Invalid benchmark type argument." << std::endl;
-            return 1;
-        }
         logger.print_ec2_config(config);
         logger.print_config_params(config);
-        switch (bench_type.value()) {
-            case S3:
-                return run_s3(std::move(config), logger);
-            case CPU:
-                return run_cpu(std::move(config), logger);
-            case RAM:
-                return run_ram(std::move(config), logger);
-            case SSD:  // TODO
-                return 1;
-        }
-        return 0;
+        return bench_runners[config.bench_type](std::move(config), logger);
     }
     // --------------------------------------------------------------------------------
 }  // namespace benchmark::cli
