@@ -29,6 +29,13 @@ namespace benchmark {
         print_conf_var("Payloads Min", config.payloads_min);
         print_conf_var("Payloads Max", config.payloads_max);
         print_conf_var("Payloads Step", config.payloads_step);
+        out << "+------------------ \033[1;32mCACHE CONFIGURATION\033[0m ------------------+\n";
+        print_conf_var("Payloads Min", config.payloads_min);
+        print_conf_var("Payloads Max", config.payloads_max);
+        print_conf_var("Payloads Step", config.payloads_step);
+        print_conf_var("Reads Min", config.cache_reads_min);
+        print_conf_var("Reads Max", config.cache_reads_max);
+        print_conf_var("Reads Step", config.cache_reads_step);
         out << "+---------------------------------------------------------+\n\n";
     }
 

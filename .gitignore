@@ -6,6 +6,7 @@ doc/perf
 # IDE Folders
 .idea/
 .ccls-cache
+compile_commands.json
 
 # Temp Files
 log/

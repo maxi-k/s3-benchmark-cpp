@@ -2,8 +2,8 @@
 // Created by maxi on 14.07.20.
 //
 
-#ifndef _BENCHMARK_CPUBENCHMARK_H
-#define _BENCHMARK_CPUBENCHMARK_H
+#ifndef _BENCHMARK_CPUBENCHMARK_HPP
+#define _BENCHMARK_CPUBENCHMARK_HPP
 
 #include <benchmark/Logger.hpp>
 #include "benchmark/Config.hpp"
@@ -47,4 +47,4 @@ namespace benchmark::cpu {
     };
     // --------------------------------------------------------------------------------
 }  // namespace benchmark::cpu
-#endif //_BENCHMARK_CPUBENCHMARK_H
+#endif //_BENCHMARK_CPUBENCHMARK_HPP

@@ -7,6 +7,7 @@
 #include "benchmark/s3/S3Benchmark.hpp"
 #include "benchmark/cpu/CpuBenchmark.hpp"
 #include "benchmark/ram/RamBenchmark.hpp"
+#include "benchmark/cache/CacheBenchmark.hpp"
 #include "benchmark/cli/CliArgs.hpp"
 
 namespace benchmark::cli {
@@ -42,11 +43,20 @@ namespace benchmark::cli {
         return 0;
     }
     // --------------------------------------------------------------------------------
+    int run_cache(Config &&bare_config, Logger &bare_logger) {
+        auto config = cache::CacheConfig(std::move(bare_config));
+        auto logger = cache::CacheLogger(bare_logger);
+        auto bm = cache::CacheBenchmark(config);
+        bm.run_full_benchmark(logger);
+        return 0;
+    }
+    // --------------------------------------------------------------------------------
     using runner_t = int (*)(Config &&bar_config, Logger &bare_logger);
-    static constexpr runner_t bench_runners[3] = {
+    static constexpr runner_t bench_runners[4] = {
             [S3] = run_s3,
             [CPU] = run_cpu,
-            [RAM] = run_ram
+            [RAM] = run_ram,
+            [CACHE] = run_cache
     };
     // --------------------------------------------------------------------------------
     int run(int *argc, char ***argv) {

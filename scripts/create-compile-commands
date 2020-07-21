@@ -1,0 +1,4 @@
+#!/bin/sh
+FOLDER=cmake-build-debug
+cmake -H. -B$FOLDER -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=YES
+ln -sf  $FOLDER/compile_commands.json .

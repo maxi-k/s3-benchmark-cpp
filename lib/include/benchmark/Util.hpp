@@ -58,6 +58,11 @@ namespace benchmark {
         inline std::chrono::duration<double, std::chrono::milliseconds::period> duration_milliseconds(FromDuration from) {
             return duration_float<std::chrono::milliseconds::period>(from);
         }
+
+        template<typename FromDuration>
+        inline std::chrono::duration<double, std::chrono::nanoseconds ::period> duration_nanoseconds(FromDuration from) {
+            return duration_float<std::chrono::nanoseconds::period>(from);
+        }
     }
     // --------------------------------------------------------------------------------
     namespace random {
@@ -188,12 +193,14 @@ namespace benchmark {
     // --------------------------------------------------------------------------------
     template<typename T>
     struct ValueStats {
+        size_t count;
         T avg;
         T sum;
         T min;
         T max;
 
-        ValueStats(const std::vector<T> &data_points, const T &zero_val) {
+        ValueStats(const std::vector<T> &data_points, const T &zero_val)
+            : count(data_points.size()) {
             T v_min, v_max = data_points[0];
             T v_sum = zero_val;
             for (auto& dp : data_points) {

@@ -28,7 +28,7 @@ namespace benchmark::cli {
             return std::nullopt;
         }
 
-        static bool validate(const char* flagname, const Value &value) {
+        static bool validate([[maybe_unused]] const char* flagname, const Value &value) {
             return member_to_enum(value).has_value();
         }
     };
@@ -40,7 +40,7 @@ namespace benchmark::cli {
     #pragma ide diagnostic ignored "cert-err58-cpp"
     // Define program arguments using gflags macros
     namespace flags {
-        DEFINE_string(bench, "ram", "Which benchmark to run. Options are s3, cpu, memory, storage.");
+        DEFINE_string(bench, "cache", "Which benchmark to run. Options are s3, cpu, memory, storage.");
         DEFINE_validator(bench, BENCH_TYPE_PARSER::validate);
 
         DEFINE_bool(quiet, false, "If true, log run results etc. to the cli.");
@@ -50,11 +50,11 @@ namespace benchmark::cli {
                     "It's advised to explicitly set threads-min and threads-max if this option is given.");
         DEFINE_double(threads_min, 1, // 1
                       "The minimum number of threads to use when fetching objects from S3 as a multiple of the hardware thread count.");
-        DEFINE_double(threads_max, 32, // 2
+        DEFINE_double(threads_max, 16, // 2
                       "The maximum number of threads to use when fetching objects from S3 as a multiple of the hardware thread count.");
         DEFINE_double(threads_step, 2,
-                      "What increase in thread count per benchmark run is. Positive means multiplicative, negative means additive.");
-        DEFINE_uint64(payloads_min, 32 * units::mib,
+                      "The increase in thread count per benchmark run, multiplicative (n *= threads_step)");
+        DEFINE_uint64(payloads_min, 1 * units::kib,
                       "The minimum object size to test, with 1 = 1 MB, and every increment is a double of the previous value.");
         DEFINE_uint64(payloads_max, 128 * units::mib,
                       "The maximum object size to test, with 1 = 1 MB, and every increment is a double of the previous value.");
@@ -62,7 +62,7 @@ namespace benchmark::cli {
                       "What the multiplicative increase in payload size per benchmark run is (size *= step). Must be > 1");
         DEFINE_bool(payloads_reverse, false,
                     "If true, start with the largest payload size first and decrease from there");
-        DEFINE_uint64(samples, 100,
+        DEFINE_uint64(samples, 1000000,
                       "The number of samples to collect for each test of a single object size per thread.");
         DEFINE_uint64(samples_cap, 7200,
                       "The maximum number of samples to collect for each test of a single object size.");
@@ -89,6 +89,10 @@ namespace benchmark::cli {
 #endif
                       );
         DEFINE_validator(ram_mode, RAM_MODE_PARSER::validate);
+
+        DEFINE_uint64(cache_reads_min, 128, "The minimum number of reads for each repetition in the cache benchmark.");
+        DEFINE_uint64(cache_reads_max, 128, "The maximum number of reads for each repetition in the cache benchmark.");
+        DEFINE_uint64(cache_reads_step, 2, "The multiplier for each cache read count.");
 
     } // namespace flags
 
@@ -118,7 +122,10 @@ namespace benchmark::cli {
                               flags::FLAGS_throttling_mode,
                               flags::FLAGS_upload_csv,
                               flags::FLAGS_upload_stats,
-                              RAM_MODE_PARSER::member_to_enum(flags::FLAGS_ram_mode).value()
+                              RAM_MODE_PARSER::member_to_enum(flags::FLAGS_ram_mode).value(),
+                              flags::FLAGS_cache_reads_min,
+                              flags::FLAGS_cache_reads_max,
+                              flags::FLAGS_cache_reads_step,
                       });
     }
 
