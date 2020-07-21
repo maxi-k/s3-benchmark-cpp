@@ -38,4 +38,4 @@ namespace benchmark::cache {
             << std::endl;
     }
     // --------------------------------------------------------------------------------
-} // namespace benchmark::cache
+}  // namespace benchmark::cache

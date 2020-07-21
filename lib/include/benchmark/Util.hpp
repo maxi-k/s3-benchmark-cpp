@@ -201,7 +201,7 @@ namespace benchmark {
 
         ValueStats(const std::vector<T> &data_points, const T &zero_val)
             : count(data_points.size()) {
-            T v_min, v_max = data_points[0];
+            T v_min = data_points[0], v_max = data_points[0];
             T v_sum = zero_val;
             for (auto& dp : data_points) {
                 if (dp < v_min) v_min = dp;

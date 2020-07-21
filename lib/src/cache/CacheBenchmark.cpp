@@ -3,6 +3,8 @@
 //
 #include <algorithm>
 #include <random>
+#include <vector>
+
 #include "benchmark/cache/CacheBenchmark.hpp"
 
 namespace benchmark::cache {
@@ -10,7 +12,7 @@ namespace benchmark::cache {
     uint64_t rdtsc() {
         uint32_t hi, lo;
         __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
-        return static_cast<uint64_t>(lo)|(static_cast<uint64_t>(hi)<<32);
+        return static_cast<uint64_t>(lo) | (static_cast<uint64_t>(hi) << 32ul);
     }
     // --------------------------------------------------------------------------------
     CacheBenchmark::CacheBenchmark(const CacheConfig &config) : config(config) {}
@@ -26,7 +28,7 @@ namespace benchmark::cache {
             threads.emplace_back([&, t_id]() {
                 auto rep = params.sample_count;
                 auto jumps = params.linkset_jumps;
-                size_t cache[128]; // TODO: check size
+                size_t cache[128];  // TODO: check size
                 barrier.wait();
                 auto start = rdtsc();
                 for (unsigned j = 0; j != jumps; ++j) {
@@ -46,7 +48,6 @@ namespace benchmark::cache {
                 read_counts[t_id] = rep * jumps * sizeof(size_t);
                 results[t_id] = sum;
             });
-
         }
 
         auto time_start = clock::now();
@@ -59,7 +60,7 @@ namespace benchmark::cache {
         auto read_sum = 0ul, result = 0ul;
         for (unsigned i = 0; i != params.thread_count; ++i) {
             read_sum += read_counts[i];
-            result += results[i] ;
+            result += results[i];
         }
         return RunResults{
                 durations,
@@ -102,4 +103,4 @@ namespace benchmark::cache {
         }
     }
 // --------------------------------------------------------------------------------
-}
+}  // namespace benchmark::cache
