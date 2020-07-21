@@ -62,11 +62,11 @@ namespace benchmark::ram {
     // --------------------------------------------------------------------------------
     class RamBenchmark {
         const RamConfig &config;
-        using ThreadTask = void (*) (const RunParameters &params, ThreadTaskParams &t);
+        using ThreadTask = void (*) (const RunParameters &params, ThreadTaskParams &&t);
 
-        static void thread_task_read(const RunParameters &params, ThreadTaskParams &t);
-        static void thread_task_write(const RunParameters &params, ThreadTaskParams &t);
-        static void thread_task_read_avx(const RunParameters &params, ThreadTaskParams &t);
+        static void thread_task_read(const RunParameters &params, ThreadTaskParams &&t);
+        static void thread_task_write(const RunParameters &params, ThreadTaskParams &&t);
+        static void thread_task_read_avx(const RunParameters &params, ThreadTaskParams &&t);
         static constexpr ThreadTask thread_task_map[3] = {
             [READ] = thread_task_read,
             [WRITE] = thread_task_write,

@@ -26,7 +26,7 @@ namespace benchmark::ram {
         : : "D" (buffer), "c" (n_words), "a" (to_write) );
     }
     // --------------------------------------------------------------------------------
-    void RamBenchmark::thread_task_write(const RunParameters &params, ThreadTaskParams &t) {
+    void RamBenchmark::thread_task_write(const RunParameters &params, ThreadTaskParams &&t) {
         auto read_sum = 0ul;
         t.barrier.wait();
         for (size_t n_sample = 0; n_sample < params.sample_count; ++n_sample) {
@@ -41,7 +41,7 @@ namespace benchmark::ram {
         *t.read_count = read_sum;
     }
     // --------------------------------------------------------------------------------
-    void RamBenchmark::thread_task_read(const RunParameters &params, ThreadTaskParams &t) {
+    void RamBenchmark::thread_task_read(const RunParameters &params, ThreadTaskParams &&t) {
         auto read_sum = 0ul;
         auto res = 0ul;
         t.barrier.wait();
@@ -59,7 +59,7 @@ namespace benchmark::ram {
         *t.read_count = read_sum;
     }
     // --------------------------------------------------------------------------------
-    void RamBenchmark::thread_task_read_avx(const RunParameters &params, ThreadTaskParams &t) {
+    void RamBenchmark::thread_task_read_avx(const RunParameters &params, ThreadTaskParams &&t) {
         auto read_sum = 0ul;
         __m256i res = _mm256_loadu_si256(reinterpret_cast<__m256i*>(t.tspace1));
         t.barrier.wait();
@@ -86,21 +86,21 @@ namespace benchmark::ram {
         std::vector<size_t> results(params.thread_count);
 
         Barrier barrier(params.thread_count + 1);
-        std::vector<ThreadTaskParams> thread_params;
         std::vector<std::thread> threads;
         auto fn = thread_task_map[config.ram_mode];
         for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
             auto mem_idx = config.payloads_max * t_id / sizeof(size_t);
-            thread_params.emplace_back(ThreadTaskParams{
-                    t_id,
-                    barrier,
-                    memspace1 + mem_idx,
-                    memspace2 + mem_idx,
-                    durations.data() + params.sample_count * t_id,
-                    read_counts.data() + t_id,
-                    results.data() + t_id
+            threads.emplace_back([&, t_id]() {
+                fn(params, ThreadTaskParams{
+                        t_id,
+                        barrier,
+                        memspace1 + mem_idx,
+                        memspace2 + mem_idx,
+                        durations.data() + params.sample_count * t_id,
+                        read_counts.data() + t_id,
+                        results.data() + t_id
+                });
             });
-            threads.emplace_back([&params, &thread_params, &fn, t_id]() { fn(params, thread_params[t_id]); });
         }
         clock::time_point start_time = clock::now();
         barrier.wait();
@@ -122,12 +122,12 @@ namespace benchmark::ram {
     // --------------------------------------------------------------------------------
     void RamBenchmark::run_full_benchmark(RamLogger &logger) const {
         // Prepare memory spaces for the benchmark
-        auto space_words = (config.payloads_max * static_cast<size_t>(config.threads_max)) / sizeof(size_t);
+        size_t space_words = (config.payloads_max * static_cast<size_t>(config.threads_max)) / sizeof(size_t);
         auto read_space1 = new size_t[space_words];
         auto read_space2 = new size_t[space_words];
-        for (size_t i = 0, size = space_words; i != size; ++i) {
+        for (size_t i = 0; i != space_words; ++i) {
            read_space1[i] = i;
-           read_space2[i] = size - i;
+           read_space2[i] = space_words - i;
         }
         // TODO: consider config.payloads_step
         auto params = RunParameters{ config.samples, 1, 0,  };
