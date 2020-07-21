@@ -85,7 +85,7 @@ namespace benchmark::cli {
                       #ifdef __AVX2__
                               "Whether to test [read] or [write] or [read-avx] speed for the RAM benchmark."
 #else
-                "Whether to test [read] or [write] or [read-avx] speed for the RAM benchmark."
+                "Whether to test [read] or [write] speed for the RAM benchmark."
 #endif
                       );
         DEFINE_validator(ram_mode, RAM_MODE_PARSER::validate);
