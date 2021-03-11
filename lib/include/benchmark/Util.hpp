@@ -9,8 +9,10 @@
 #include <random>
 #include <chrono>
 #include <iostream>
+#include <string>
 #include <stdexcept>
 #include <mutex>
+#include <optional>
 #include <condition_variable>
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -255,6 +257,78 @@ namespace benchmark {
             }
         }
     };
+    // --------------------------------------------------------------------------------
+    class Waiter {
+        std::mutex latch;
+        std::condition_variable cond;
+        size_t count;
+    public:
+      Waiter(size_t to_wait)
+          : latch()
+          , cond()
+          , count(to_wait) {}
+      Waiter(const Waiter &barrier) = delete;
+      Waiter(Waiter &&barrier) = delete;
+      Waiter &operator=(const Waiter &barrier) = delete;
+      Waiter &operator=(Waiter &&barrier) = delete;
+
+      void notify_done() {
+          std::lock_guard<std::mutex> lock(latch);
+          if (--count == 0) {
+              cond.notify_all();
+          }
+      }
+
+      void reset(size_t new_count) {
+        std::lock_guard<std::mutex> lock(latch);
+        count = new_count;
+      }
+
+      void wait_all() {
+        if (count == 0) {
+            return;
+        }
+        std::unique_lock<std::mutex> lock(latch);
+        cond.wait(lock, [this]() { return count == 0; });
+      }
+    };
+    // --------------------------------------------------------------------------------
+    class MapBuf : public std::streambuf {
+        using buf_t = std::array<size_t, 256>;
+        buf_t& map;
+        std::optional<char> single;
+    public:
+        MapBuf(buf_t& map) : std::streambuf(), map(map) {}
+        ~MapBuf() {
+            std::cout << "Destroying MapBuf with map addr " << &map << std::endl;
+        }
+    protected:
+          std::streamsize xsputn(const char_type *s, std::streamsize n) override {
+              auto ptr = s;
+              auto end = s + n;
+              if (n % 2 != 0) {
+                  overflow(*ptr);
+                  ++ptr;
+              }
+              while (ptr != end) {
+                // std::cout << "Putting " << static_cast<unsigned>((*ptr) & 255) << " into " << static_cast<unsigned>((*(ptr+1)) & 255) << std::endl;
+                map[(*(ptr+1)) & 255] += static_cast<size_t>((*ptr) & 255);
+                ptr += 2;
+              }
+              return n;
+          };
+
+          int_type overflow(int_type ch) override {
+              if (single.has_value()) {
+                  map[single.value()] = ch;
+                  single = std::nullopt;
+              } else {
+                  single = { ch };
+              }
+              return 1;
+          }
+    };
+    // --------------------------------------------------------------------------------
 }  // namespace benchmark
 
 #endif //_BENCHMARK_UTIL_HPP

@@ -79,7 +79,8 @@ namespace benchmark::s3 {
         void list_buckets() const;
         [[nodiscard]] size_t fetch_object_size() const;
         [[nodiscard]] latency_t fetch_range(const ByteRange &range, char* outbuf, size_t bufsize) const;
-        [[nodiscard]] latency_t fetch_object(const Aws::S3::Model::GetObjectRequest &req) const;
+        [[nodiscard]] latency_t fetch_object(const Aws::S3::Model::GetObjectRequest &req, char* outbuf, size_t size) const;
+        void fetch_object_async(const Aws::S3::Model::GetObjectRequest &req, latency_t* target, char* outbuf, size_t length, Waiter& waiter) const;
 
         [[nodiscard]] static ByteRange random_range_in(size_t size, size_t max_value) ;
         [[nodiscard]] RunResults do_run(RunParameters &params) const;
