@@ -159,28 +159,19 @@ namespace benchmark::s3 {
                }
                char* buf = outbuf.data() + t_id * params.payload_size;
                // //---- async ---- // 
-               constexpr unsigned async_cnt = 3;
+               constexpr unsigned async_cnt = 4;
                Waiter waiter(async_cnt);
                for (unsigned i = 0; i < params.sample_count; ++i) {
                  // //---- sync ----//
                  // req.SetResponseStreamFactory(stream_factory);
-                 for (unsigned j = 0; j != async_cnt; ++j) {
+                 auto diff = async_cnt - waiter.current();
+                 for (unsigned j = 0; j != diff; ++j) {
                    this->fetch_object_async(requests[idx_start + i],
                                             &results[idx_start + i], buf,
                                             params.payload_size, waiter);
                    ++i;
                  }
-                 auto req = requests[idx_start + i];
-                 results[idx_start + i] =
-                     this->fetch_object(req, buf, params.payload_size);
-                 for (auto ptr = reinterpret_cast<Row *>(buf);
-                      ptr !=
-                      reinterpret_cast<Row *>((buf + params.payload_size));
-                      ++ptr) {
-                   hashmap[ptr->key & 15] += ptr->value;
-                 }
-                 waiter.wait_all();
-                 waiter.reset(async_cnt);
+                 waiter.wait_n(1);
                  // todo process async from extra buffer here
                }
            });

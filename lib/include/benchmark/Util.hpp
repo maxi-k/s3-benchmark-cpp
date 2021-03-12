@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <mutex>
 #include <optional>
+#include <atomic>
 #include <condition_variable>
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -261,7 +262,7 @@ namespace benchmark {
     class Waiter {
         std::mutex latch;
         std::condition_variable cond;
-        size_t count;
+        std::atomic<size_t> count;
     public:
       Waiter(size_t to_wait)
           : latch()
@@ -279,17 +280,26 @@ namespace benchmark {
           }
       }
 
+      void add(size_t new_count) {
+        std::lock_guard<std::mutex> lock(latch);
+        count += new_count;
+      }
+
       void reset(size_t new_count) {
         std::lock_guard<std::mutex> lock(latch);
         count = new_count;
       }
 
-      void wait_all() {
+      size_t current() { return count; }
+
+      size_t wait_n(size_t n) {
         if (count == 0) {
-            return;
+            return 0;
         }
         std::unique_lock<std::mutex> lock(latch);
-        cond.wait(lock, [this]() { return count == 0; });
+        size_t target_count = n >= count ? 0 : count - n;
+        cond.wait(lock, [this, target_count]() { return count == target_count; });
+        return count;
       }
     };
     // --------------------------------------------------------------------------------
