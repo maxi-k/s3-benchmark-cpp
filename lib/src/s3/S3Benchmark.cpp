@@ -158,25 +158,31 @@ namespace benchmark::s3 {
                    start_time = clock::now();
                }
                char* buf = outbuf.data() + t_id * params.payload_size;
-               // //---- async ---- //
-               // Waiter waiter(1);
-               // this->fetch_object_async(requests[idx_start], &results[idx_start], buf, params.payload_size, waiter);
-               for (unsigned i = 1; i < params.sample_count; ++i) {
-                   // //---- sync ----//
-                    auto req = requests[idx_start + i];
-                   // req.SetResponseStreamFactory(stream_factory);
-                   results[idx_start + i] = this->fetch_object(req, buf, params.payload_size);
-                   // //---- async ----//
-                   // waiter.wait_all();
-                   // waiter.reset(1);
-                   // this->fetch_object_async(requests[idx_start + i],
-                   //                          &results[idx_start + i], buf,
-                   //                          params.payload_size, waiter);
-                   for(auto ptr = reinterpret_cast<Row*>(buf); ptr != reinterpret_cast<Row*>((buf + params.payload_size)); ++ptr) {
-                       hashmap[ptr->key & 15] += ptr->value;
-                   }
+               // //---- async ---- // 
+               constexpr unsigned async_cnt = 3;
+               Waiter waiter(async_cnt);
+               for (unsigned i = 0; i < params.sample_count; ++i) {
+                 // //---- sync ----//
+                 // req.SetResponseStreamFactory(stream_factory);
+                 for (unsigned j = 0; j != async_cnt; ++j) {
+                   this->fetch_object_async(requests[idx_start + i],
+                                            &results[idx_start + i], buf,
+                                            params.payload_size, waiter);
+                   ++i;
+                 }
+                 auto req = requests[idx_start + i];
+                 results[idx_start + i] =
+                     this->fetch_object(req, buf, params.payload_size);
+                 for (auto ptr = reinterpret_cast<Row *>(buf);
+                      ptr !=
+                      reinterpret_cast<Row *>((buf + params.payload_size));
+                      ++ptr) {
+                   hashmap[ptr->key & 15] += ptr->value;
+                 }
+                 waiter.wait_all();
+                 waiter.reset(async_cnt);
+                 // todo process async from extra buffer here
                }
-               // waiter.wait_all();
            });
         }
 

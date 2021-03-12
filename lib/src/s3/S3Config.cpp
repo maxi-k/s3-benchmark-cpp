@@ -21,7 +21,7 @@ namespace benchmark::s3 {
 
     void S3Config::sanitize_client_config() {
         this->client_config.region = region;
-        this->client_config.maxConnections = std::abs(static_cast<int64_t>(this->threads_max));
+        this->client_config.maxConnections = std::abs(static_cast<int64_t>(this->threads_max * this->samples));
         this->client_config.scheme = Aws::Http::Scheme::HTTP;
         this->client_config.httpRequestTimeoutMs = 3 * units::ms_per_min;
         this->client_config.verifySSL = false;
