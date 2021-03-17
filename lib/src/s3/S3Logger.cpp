@@ -34,4 +34,30 @@ namespace benchmark::s3 {
         out << "\nDownload performance with \033[1;33m" <<  bytes << "\033[0m objects\n" << std::endl;
     }
 
+    // ------------------------------------------------------------------------------------
+
+    inline size_t steady_clock_to_mys(const clock::time_point& t) {
+        return std::chrono::duration_cast<std::chrono::microseconds>(t.time_since_epoch()).count();
+    }
+
+    void S3Logger::print_csv_run_header() const {
+      out << "threads,read_byte,overall_us,start_time,end_time,diff_us" << std::endl;
+    }
+
+    void S3Logger::print_csv_run_detail(const RunParameters &params, const RunResults &results) const {
+      size_t overall_us = std::chrono::duration_cast<std::chrono::microseconds>(results.overall_time).count();
+      for (auto &[start, end] : results.data_points) {
+        std::cout << params.thread_count << ","
+                  << params.payload_size << ","
+                  << overall_us << ","
+                  << steady_clock_to_mys(start) << ","
+                  << steady_clock_to_mys(end) << ","
+                  << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << std::endl;
+      }
+    }
+
+    void S3Logger::print_csv_run_footer() const {
+        // NO-OP
+    }
+
 }  // namespace benchmark::s3

@@ -41,14 +41,14 @@ namespace benchmark::s3 {
         return len;
     }
 
-    [[nodiscard]] inline latency_t S3Benchmark::fetch_object(const Aws::S3::Model::GetObjectRequest &req) const {
+    [[nodiscard]] inline request_time_t S3Benchmark::fetch_object(const Aws::S3::Model::GetObjectRequest &req) const {
         auto start = clock::now();
         client.GetObject(req);
         auto end = clock::now();
-        return std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        return std::make_pair(start, end);
     }
 
-    latency_t S3Benchmark::fetch_range(const ByteRange &range, char* outbuf, size_t bufsize) const {
+    request_time_t S3Benchmark::fetch_range(const ByteRange &range, char* outbuf, size_t bufsize) const {
         auto req = Aws::S3::Model::GetObjectRequest()
                 .WithBucket(config.bucket_name)
                 .WithKey(config.object_name)
@@ -73,10 +73,10 @@ namespace benchmark::s3 {
     }
 
     RunResults S3Benchmark::do_run(RunParameters &params) const {
-        auto max_obj_size = this->fetch_object_size();
+        auto max_obj_size = params.payload_size;
 
         std::vector<char> outbuf(params.thread_count * params.payload_size);
-        std::vector<latency_t> results(params.sample_count * params.thread_count);
+        std::vector<request_time_t> results(params.sample_count * params.thread_count);
         std::vector<std::thread> threads;
 
         std::vector<Aws::S3::Model::GetObjectRequest> requests;
@@ -89,17 +89,18 @@ namespace benchmark::s3 {
             return Aws::New<Aws::FStream>("S3Client", "/dev/null", std::ios_base::out);
         });
         for (size_t i = 0; i < params.sample_count * params.thread_count; ++i) {
+            auto obj = config.object_name + "/" + std::to_string(i) + ".chunk";
+            // std::cout << "will to request to " << obj << std::endl;
             auto req = Aws::S3::Model::GetObjectRequest()
                     .WithBucket(config.bucket_name)
-                    .WithKey(config.object_name)
-                    .WithRange(random_range_in(params.payload_size, max_obj_size).as_http_header());
+                    .WithKey(obj);
             // Put data into outbuf
             req.SetResponseStreamFactory(stream_factory);
             requests.push_back(req);
         }
 
         clock::time_point start_time;
-        bool do_start = false;
+        std::atomic<bool> do_start = false;
 
         for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
            threads.emplace_back([this, t_id, max_obj_size, &requests, &params, &results, &do_start, &start_time]() {
@@ -123,7 +124,7 @@ namespace benchmark::s3 {
         clock::time_point end_time = clock::now();
         return RunResults{
             results,
-            std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time)
+            std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time)
         };
     }
 
@@ -132,16 +133,15 @@ namespace benchmark::s3 {
         auto params = RunParameters{ config.samples, 1, 0 };
         for (size_t payload_size = config.payloads_min; payload_size <= config.payloads_max; payload_size *= 2) {
             params.payload_size = payload_size;
-            logger.print_run_params(params);
-            logger.print_run_header();
+            // logger.print_run_params(params);
+            logger.print_csv_run_header();
             // TODO: consider config.threads_step
             for (size_t thread_count = config.threads_min; thread_count <= config.threads_max; thread_count *= 2) {
                 params.thread_count =  thread_count;
                 auto results = this->do_run(params);
-                auto stats = RunStats(params, results);
-                logger.print_run_stats(stats);
+                logger.print_csv_run_detail(params, results);
             }
-            logger.print_run_footer();
+            logger.print_csv_run_footer();
         }
         // TODO: csv upload
     }

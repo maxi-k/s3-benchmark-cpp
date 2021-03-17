@@ -17,7 +17,8 @@
 namespace benchmark::s3 {
     // --------------------------------------------------------------------------------
     using ObjectHead = Aws::S3::Model::HeadObjectOutcome;
-    using latency_t = std::chrono::duration<size_t, std::chrono::milliseconds::period>;
+    using latency_t = std::chrono::duration<size_t, std::chrono::microseconds::period>;
+    using request_time_t = std::pair<clock::time_point, clock::time_point>;
     // --------------------------------------------------------------------------------
     struct ByteRange {
         size_t first_byte;
@@ -33,7 +34,7 @@ namespace benchmark::s3 {
     };
     // --------------------------------------------------------------------------------
     struct RunResults {
-        std::vector<latency_t> data_points;
+        std::vector<request_time_t> data_points;
         latency_t overall_time;
     };
     // --------------------------------------------------------------------------------
@@ -55,6 +56,9 @@ namespace benchmark::s3 {
         void print_run_header() const override;
         void print_run_stats(const RunStats &stats) const override;
         void print_run_params(const RunParameters &params) const override;
+        void print_csv_run_header() const;
+        void print_csv_run_detail(const RunParameters &params, const RunResults &results) const;
+        void print_csv_run_footer() const;
     };
     // --------------------------------------------------------------------------------
     class S3Config : public Config {
@@ -78,8 +82,8 @@ namespace benchmark::s3 {
 
         void list_buckets() const;
         [[nodiscard]] size_t fetch_object_size() const;
-        [[nodiscard]] latency_t fetch_range(const ByteRange &range, char* outbuf, size_t bufsize) const;
-        [[nodiscard]] latency_t fetch_object(const Aws::S3::Model::GetObjectRequest &req) const;
+        [[nodiscard]] request_time_t fetch_range(const ByteRange &range, char* outbuf, size_t bufsize) const;
+        [[nodiscard]] request_time_t fetch_object(const Aws::S3::Model::GetObjectRequest &req) const;
 
         [[nodiscard]] static ByteRange random_range_in(size_t size, size_t max_value) ;
         [[nodiscard]] RunResults do_run(RunParameters &params) const;

@@ -5,15 +5,20 @@
 #include "benchmark/s3/S3Benchmark.hpp"
 namespace benchmark::s3 {
     // --------------------------------------------------------------------------------
+    latency_t to_latency(const request_time_t& time) {
+        return std::chrono::duration_cast<std::chrono::microseconds>(time.second - time.first);
+    };
+    // --------------------------------------------------------------------------------
     RunStats::RunStats(const RunParameters &params, const RunResults &run)
             : RunParameters(params)
             , samples_sum(run.data_points.size())
             , download_sum(samples_sum * params.payload_size)
             , duration(run.overall_time) {
-        latency_t l_min = run.data_points[0];
-        latency_t l_max = run.data_points[0];
+        latency_t l_min = to_latency(run.data_points[0]);
+        latency_t l_max = to_latency(run.data_points[0]);
         latency_t l_sum = latency_t::zero();
-        for (auto &dp : run.data_points) {
+        for (auto &dp_t : run.data_points) {
+            auto dp = to_latency(dp_t);
             if (dp < l_min) l_min = dp;
             if (dp > l_max) l_max = dp;
             l_sum += dp;
