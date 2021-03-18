@@ -14,6 +14,9 @@ namespace benchmark {
     enum BenchType { S3, CPU, RAM, CACHE };
     inline const char* BENCH_TYPE_NAMES[] = { "s3", "cpu", "ram", "cache" };
 
+    enum IOMode { SYNC, URING };
+    inline const char* IO_MODE_NAMES[] = { "sync", "uring" };
+
     enum RamTestMode { READ, WRITE, READ_AVX };
     inline const char* RAM_MODE_NAMES[] = { "read", "write", "read-avx" };
 
@@ -38,6 +41,7 @@ namespace benchmark {
         bool throttling_mode;
         std::string upload_csv;
         std::string upload_stats;
+        IOMode io_mode;
         RamTestMode ram_mode;
         size_t cache_reads_min;
         size_t cache_reads_max;

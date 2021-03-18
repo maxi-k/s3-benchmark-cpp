@@ -34,13 +34,14 @@ namespace benchmark::cli {
     };
 
     using BENCH_TYPE_PARSER = EnumParser<BenchType, std::string, 4, BENCH_TYPE_NAMES>;
+    using IO_MODE_PARSER = EnumParser<IOMode, std::string, 2, IO_MODE_NAMES>;
     using RAM_MODE_PARSER = EnumParser<RamTestMode, std::string, 3, RAM_MODE_NAMES>;
 
     #pragma clang diagnostic push
     #pragma ide diagnostic ignored "cert-err58-cpp"
     // Define program arguments using gflags macros
     namespace flags {
-        DEFINE_string(bench, "cache", "Which benchmark to run. Options are s3, cpu, memory, storage.");
+        DEFINE_string(bench, "cache", "Which benchmark to run. Options are [s3], [cpu], [memory], [storage].");
         DEFINE_validator(bench, BENCH_TYPE_PARSER::validate);
 
         DEFINE_bool(quiet, false, "If true, log run results etc. to the cli.");
@@ -80,6 +81,9 @@ namespace benchmark::cli {
                       "Uploads the test results to S3 as a CSV file.");
         DEFINE_string(upload_stats, "",
                       "Upload CPU stats from during the benchmark to S3 as a CSV file.");
+
+        DEFINE_string(io_mode, "sync", "Which I/O strategy to use. Options are [sync] and [uring]");
+        DEFINE_validator(io_mode, IO_MODE_PARSER::validate);
 
         DEFINE_string(ram_mode, "read",
                       #ifdef __AVX2__
@@ -122,6 +126,7 @@ namespace benchmark::cli {
                               flags::FLAGS_throttling_mode,
                               flags::FLAGS_upload_csv,
                               flags::FLAGS_upload_stats,
+                              IO_MODE_PARSER::member_to_enum(flags::FLAGS_io_mode).value(),
                               RAM_MODE_PARSER::member_to_enum(flags::FLAGS_ram_mode).value(),
                               flags::FLAGS_cache_reads_min,
                               flags::FLAGS_cache_reads_max,

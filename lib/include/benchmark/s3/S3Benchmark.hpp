@@ -9,6 +9,8 @@
 #include <ratio>
 #include <aws/core/Aws.h>
 #include <aws/s3/S3Client.h>
+#include <aws/s3/model/GetObjectRequest.h>
+#include <aws/s3/model/HeadObjectRequest.h>
 
 #include "benchmark/Util.hpp"
 #include "benchmark/Config.hpp"
@@ -70,6 +72,7 @@ namespace benchmark::s3 {
         [[nodiscard]] const Aws::Client::ClientConfiguration& aws_config() const;
     };
     // --------------------------------------------------------------------------------
+    template<IOMode mode>
     class S3Benchmark {
         const S3Config &config;
         Aws::S3::S3Client client;
@@ -77,15 +80,16 @@ namespace benchmark::s3 {
         explicit S3Benchmark(const S3Config &config);
 
         void list_buckets() const;
+        void run_full_benchmark(S3Logger &logger) const;
+    private:
         [[nodiscard]] size_t fetch_object_size() const;
-        [[nodiscard]] latency_t fetch_range(const ByteRange &range, char* outbuf, size_t bufsize) const;
-        [[nodiscard]] latency_t fetch_object(const Aws::S3::Model::GetObjectRequest &req) const;
-
         [[nodiscard]] static ByteRange random_range_in(size_t size, size_t max_value) ;
         [[nodiscard]] RunResults do_run(RunParameters &params) const;
-        void run_full_benchmark(S3Logger &logger) const;
     };
     // --------------------------------------------------------------------------------
 }
+
+// include template definitions
+#include "S3Benchmark.template.cpp"
 
 #endif // _BENCHMARK_S3_BENCHMARK_HPP
