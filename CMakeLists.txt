@@ -13,7 +13,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fPIC -Wall -Wextra -fno-omit-frame-pointer -march=native -Wno-unknown-pragmas -pthread")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -Wall -Wextra -fno-omit-frame-pointer -march=native -pthread")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -Wall -Wextra -fno-omit-frame-pointer -march=native -pthread -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 # ---------------------------------------------------------------------------
 # Environment
@@ -30,6 +30,7 @@ include("${CMAKE_SOURCE_DIR}/vendor/googletest.cmake")
 include("${CMAKE_SOURCE_DIR}/vendor/cpplint.cmake")
 include("${CMAKE_SOURCE_DIR}/vendor/awssdk.cmake")
 include("${CMAKE_SOURCE_DIR}/vendor/gflags.cmake")
+include("${CMAKE_SOURCE_DIR}/vendor/liburing.cmake")
 
 # ---------------------------------------------------------------------------
 # Sources
@@ -62,6 +63,7 @@ message(STATUS "    BENCH_LIB_DIR               = ${BENCH_LIB_DIR}")
 message(STATUS "    BENCH_CLI_DIR               = ${BENCH_CLI_DIR}")
 message(STATUS "[CMAKE] settings")
 message(STATUS "    CMAKE_SOURCE_DIR            = ${CMAKE_SOURCE_DIR}")
+message(STATUS "    CMAKE_BUILD_TARGET          = ${CMAKE_BUILD_TARGET}")
 message(STATUS "    CMAKE_SHARED_LIBRARY_SUFFIX = ${CMAKE_SHARED_LIBRARY_SUFFIX}")
 message(STATUS "    CMAKE_STATIC_LIBRARY_SUFFIX = ${CMAKE_STATIC_LIBRARY_SUFFIX}")
 message(STATUS "    CMAKE_SHARED_LIBRARY_PREFIX = ${CMAKE_SHARED_LIBRARY_PREFIX}")

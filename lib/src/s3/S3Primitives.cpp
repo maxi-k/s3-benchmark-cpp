@@ -32,4 +32,10 @@ namespace benchmark::s3 {
         return s.str();
     }
     // --------------------------------------------------------------------------------
+    std::string ByteRange::as_http_header_line() const {
+        std::ostringstream s;
+        s << "bytes=" << first_byte << "-" << last_byte << "\r\n";
+        return s.str();
+    }
+    // --------------------------------------------------------------------------------
 }  // namespace benchmark::s3

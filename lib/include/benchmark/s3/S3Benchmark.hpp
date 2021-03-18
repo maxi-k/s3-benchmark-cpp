@@ -26,6 +26,7 @@ namespace benchmark::s3 {
         size_t last_byte;
         inline size_t length() const { return last_byte - first_byte; }
         [[nodiscard]] std::string as_http_header() const;
+        [[nodiscard]] std::string as_http_header_line() const;
     };
     // --------------------------------------------------------------------------------
     struct RunParameters {
@@ -68,7 +69,8 @@ namespace benchmark::s3 {
         inline const static char* DEFAULT_REGION = "eu-central-1";
 
         explicit S3Config(Config &&config);
-        [[nodiscard]] Aws::String region_name() const;
+        [[nodiscard]] const Aws::String region_name() const;
+        [[nodiscard]] const Aws::String bucket_url() const;
         [[nodiscard]] const Aws::Client::ClientConfiguration& aws_config() const;
     };
     // --------------------------------------------------------------------------------
@@ -80,11 +82,11 @@ namespace benchmark::s3 {
         explicit S3Benchmark(const S3Config &config);
 
         void list_buckets() const;
-        void run_full_benchmark(S3Logger &logger) const;
+        void run_full_benchmark(S3Logger &logger);
     private:
         [[nodiscard]] size_t fetch_object_size() const;
-        [[nodiscard]] static ByteRange random_range_in(size_t size, size_t max_value) ;
-        [[nodiscard]] RunResults do_run(RunParameters &params) const;
+        [[nodiscard]] static ByteRange random_range_in(size_t size, size_t max_value);
+        [[nodiscard]] RunResults do_run(RunParameters &params);
     };
     // --------------------------------------------------------------------------------
 }

@@ -17,11 +17,16 @@ namespace benchmark::cli {
         Aws::InitAPI(options);
         auto config = s3::S3Config(std::move(bare_config));
         auto logger = s3::S3Logger(bare_logger);
-        auto bm = s3::S3Benchmark<SYNC>(config);
         if (config.dry_run) {
-            // TODO: print dry run
+          // TODO: print dry run
+          return 0;
+        }
+        if (config.io_mode == SYNC) {
+          auto bm = s3::S3Benchmark<SYNC>(config);
+          bm.run_full_benchmark(logger);
         } else {
-            bm.run_full_benchmark(logger);
+          auto bm = s3::S3Benchmark<URING>(config);
+          bm.run_full_benchmark(logger);
         }
         Aws::ShutdownAPI(options);
         return 0;

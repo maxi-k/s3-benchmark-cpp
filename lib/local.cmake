@@ -9,6 +9,7 @@ include_directories(
     ${GTEST_INCLUDE_DIR}
     ${GMOCK_INCLUDE_DIR}
     ${GFLAGS_INCLUDE_DIR}
+    ${LIBURING_INCLUDE_DIR}
 )
 
 include("${BENCH_LIB_DIR}/src/local.cmake")
@@ -25,7 +26,7 @@ find_package(CURL REQUIRED)
 # ---------------------------------------------------------------------------
 
 add_library(s3benchmark_lib STATIC ${BENCH_LIB_SRC_CC})
-target_link_libraries(s3benchmark_lib ${AWS_LINK_LIBRARIES} ${CURL_LIBRARY} Threads::Threads)
+target_link_libraries(s3benchmark_lib ${AWS_LINK_LIBRARIES} ${CURL_LIBRARY} Threads::Threads ${LIBURING_LIBRARY})
 
 # Link against CoreFoundation if on mac
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")

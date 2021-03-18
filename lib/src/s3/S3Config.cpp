@@ -15,8 +15,12 @@ namespace benchmark::s3 {
         return client_config;
     }
 
-    Aws::String S3Config::region_name() const {
+    const Aws::String S3Config::region_name() const {
         return this->client_config.region;
+    }
+
+    const Aws::String S3Config::bucket_url() const {
+        return bucket_name + ".s3." + region_name() + ".amazonaws.com";
     }
 
     void S3Config::sanitize_client_config() {

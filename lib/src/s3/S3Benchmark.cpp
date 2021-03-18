@@ -26,7 +26,7 @@ namespace benchmark::s3 {
     }
     // ----------------------------------------------------------------------------------------------------
     template<>
-    RunResults S3Benchmark<SYNC>::do_run(RunParameters &params) const {
+    RunResults S3Benchmark<SYNC>::do_run(RunParameters &params) {
         auto max_obj_size = this->fetch_object_size();
         std::vector<char> outbuf(params.thread_count * params.payload_size);
         std::vector<latency_t> results(params.sample_count * params.thread_count);
@@ -55,7 +55,7 @@ namespace benchmark::s3 {
         std::atomic<bool> do_start = false;
 
         for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
-           threads.emplace_back([this, t_id, max_obj_size, &requests, &params, &results, &do_start, &start_time]() {
+           threads.emplace_back([this, t_id, &requests, &params, &results, &do_start, &start_time]() {
                auto idx_start = params.sample_count * t_id;
 
                if (t_id != params.thread_count - 1) {

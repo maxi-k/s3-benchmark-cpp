@@ -24,11 +24,13 @@ namespace benchmark {
         print_conf_var("Payloads Max", config.payloads_max);
         print_conf_var("Payloads Step", config.payloads_step);
         print_conf_var("Payloads Dir", payload_dir);
+        print_conf_var("I/O Mode", IO_MODE_NAMES[config.io_mode]);
         out << "+------------------- \033[1;32mRAM CONFIGURATION\033[0m -------------------+\n";
         print_conf_var("Ram Test Mode", RAM_MODE_NAMES[config.ram_mode]);
         print_conf_var("Payloads Min", config.payloads_min);
         print_conf_var("Payloads Max", config.payloads_max);
         print_conf_var("Payloads Step", config.payloads_step);
+        print_conf_var("RAM Mode", RAM_MODE_NAMES[config.ram_mode]);
         out << "+------------------ \033[1;32mCACHE CONFIGURATION\033[0m ------------------+\n";
         print_conf_var("Payloads Min", config.payloads_min);
         print_conf_var("Payloads Max", config.payloads_max);

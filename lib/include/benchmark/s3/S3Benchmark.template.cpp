@@ -49,7 +49,7 @@ namespace benchmark::s3 {
     }
     // ----------------------------------------------------------------------------------------------------
     template<IOMode Mode>
-    void S3Benchmark<Mode>::run_full_benchmark(S3Logger &logger) const {
+    void S3Benchmark<Mode>::run_full_benchmark(S3Logger &logger) {
         // TODO: consider config.payloads_step
         auto params = RunParameters{ config.samples, 1, 0 };
         for (size_t payload_size = config.payloads_min; payload_size <= config.payloads_max; payload_size *= 2) {

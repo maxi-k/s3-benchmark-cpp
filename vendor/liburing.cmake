@@ -1,0 +1,13 @@
+find_path(LIBURING_INCLUDE_DIR NAMES liburing.h)
+mark_as_advanced(LIBURING_INCLUDE_DIR)
+
+find_library(LIBURING_LIBRARY NAMES uring)
+mark_as_advanced(LIBURING_LIBRARY)
+
+include(FindPackageHandleStandardArgs)
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(
+  LIBURING
+  REQUIRED_VARS
+  LIBURING_LIBRARY
+  LIBURING_INCLUDE_DIR
+)
