@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.10
 
 RUN apt-get update -y && apt-get install -y \
       git \
@@ -9,6 +9,7 @@ RUN apt-get update -y && apt-get install -y \
       libssl-dev \
       zlib1g-dev \
       curl \
+      liburing1 \
       libcurl4 \
       libcurl4-openssl-dev \
       libcurl3-gnutls

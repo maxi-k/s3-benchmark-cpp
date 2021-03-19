@@ -85,6 +85,24 @@ namespace benchmark {
         }
         // ------------------------------------------------------------------------------------------------
         template<bool advance = true>
+        std::pair<int32_t, uint64_t> wait_completion_result() {
+            cevent* cqe;
+            auto res = io_uring_wait_cqe(&ring, &cqe);
+            if (res == 0) {
+                auto ud = cqe->user_data;
+                auto code = cqe->res;
+                if constexpr (advance) {
+                        io_uring_cqe_seen(&ring, cqe);
+                }
+                return std::make_pair(code, ud);
+            } else if (res < 0) {
+                std::cerr << "error " << -res << " while waiting for iouring completion." << std::endl;
+            }
+            std::cerr << "Completion event was " << res << " and cqe->res was " << cqe->res;
+            return { res, -1ul };
+        }
+        // ------------------------------------------------------------------------------------------------
+        template<bool advance = true>
         uint64_t wait_completion_data() {
             cevent* cqe;
             auto res = io_uring_wait_cqe(&ring, &cqe);

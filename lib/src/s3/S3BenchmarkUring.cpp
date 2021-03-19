@@ -46,24 +46,28 @@ namespace benchmark::s3 {
 
         for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
           threads.emplace_back([&, t_id]() {
-            constexpr unsigned concurrent_requests = 64;
+            constexpr unsigned concurrent_requests = 16;
             constexpr unsigned recv_mask_set = 1u << ((sizeof(unsigned) << 3u) - 1);
             constexpr unsigned recv_mask = -1u ^ recv_mask_set;
 
             auto resp_field_size =  params.payload_size + 1024 * 16;
             std::array<int, concurrent_requests> fds;
+            std::array<unsigned, concurrent_requests> res_size;
             std::array<unsigned, concurrent_requests> req_size;
             std::vector<std::vector<char>> req(concurrent_requests);
             std::vector<std::vector<char>> res(concurrent_requests);
             for (unsigned i = 0; i != concurrent_requests; ++i) {
-                req[i].reserve(max_header_alloc);
-                auto length = shared_http_header.copy(req[i].data(), shared_http_header.size());
-                auto range = this->random_range_in(params.payload_size, max_obj_size).as_http_header_line();
-                length += range.copy(req[i].data() + length, range.size());
-                length += newline.copy(req[i].data() + length, newline.size());
-                req[i][length + 1] = '\0';
-                req_size[i] = length;
-                res[i].resize(resp_field_size);
+              // request bookkeping
+              req[i].reserve(max_header_alloc);
+              auto length = shared_http_header.copy(req[i].data(), shared_http_header.size());
+              auto range = this->random_range_in(params.payload_size, max_obj_size).as_http_header_line();
+              length += range.copy(req[i].data() + length, range.size());
+              length += newline.copy(req[i].data() + length, newline.size());
+              req[i][length + 1] = '\0';
+              req_size[i] = length;
+              // response bookkeeping
+              res[i].resize(resp_field_size);
+              res_size[i] = 0;
             }
 
             std::string expected = "HTTP/1.1 206 Partial Content";
@@ -81,64 +85,74 @@ namespace benchmark::s3 {
             }
             // send initial batch of requests
             for (;in_queue != concurrent_requests; ++in_queue) {
-                auto [fd, _] = io.connect(&addr_info); // TODO: cache the lookup
-                if (fd == -1){
-                    throw std::runtime_error("Could not connect to S3 via socket.");
-                }
-                fds[in_queue] = fd;
-                io.send_async<false>(fd, req[in_queue].data(), req_size[in_queue], in_queue);
+              auto [fd, _] = io.connect(&addr_info); // TODO: cache the lookup
+              if (fd == -1) {
+                throw std::runtime_error("Could not connect to S3 via socket.");
+              }
+              fds[in_queue] = fd;
+              io.send_async<false>(fd, req[in_queue].data(), req_size[in_queue], in_queue);
             }
             io.submit_queue();
             // send rest of requests
             while (received < params.sample_count) {
-                auto cdata = io.wait_completion();
-                auto code = cdata.first;
-                auto event = cdata.second;
-                auto id = event->user_data;
-                if (code != 0) {
-                    std::cout << "Waiting returned " << code << "for id " << id << ", not doing anything..." << std::endl;
-                    io.mark_seen(event);
-                    continue;
-                }
-                io.mark_seen(event);
-                if ((id | recv_mask) == -1u) { // mask set, receive event
-                    id &= recv_mask;
-                    // TODO
-                    auto& memspace = res[id];
-                    auto res = event->res;
-                    memspace[params.payload_size] = '\0';
-                    std::cout << "event res is " << res << std::endl;
-                    // std::cout << "response is " << memspace.data() << std::endl;
-                    // TODO check if complete content was submitted here,
-                    // only submit new request when old one was really done
-                    if (::strcmp(memspace.data(), expected.c_str()) != 0) {
-                        memspace[expected.size()] = '\r';
-                        std::cerr << "got " << memspace.data() << std::endl;
-                        throw std::runtime_error("Unexpected format");
+              auto [code, id] = io.wait_completion_result();
+              if (code < 0) {
+                std::cout << "Waiting returned " << code << "for id " << id
+                          << ", not doing anything..." << std::endl;
+                continue;
+              }
+              if ((id | recv_mask) == -1u) { // mask set, receive event
+                id &= recv_mask;
+                // TODO
+                if (code > 0) { // received N bytes
+                  auto &memspace = res[id];
+                  if (res_size[id] == 0) { // first package -> should be http header
+                    auto &header_line_end = memspace[expected.size()];
+                    auto header_line_char = header_line_end;
+                    header_line_end = '\0';
+                    if (0 != ::strcmp(memspace.data(), expected.c_str())) { // but http header was not what was expected
+                      memspace[expected.size()] = header_line_char;
+                      memspace[params.payload_size] = '\0';
+                      std::cerr << "for id " << id << ": got " << memspace.data() << std::endl;
+                      throw std::runtime_error("Unexpected format");
+                    } else {
+                        // std::cout << "Received first package for id " << id << " with size " << code << std::endl;
                     }
-                    ++received;
-                    io.close(fds[id]);
-                    if (received < params.sample_count) {
-                        fds[id] = io.connect(&addr_info).first; // TODO can sockets be reused? can lookup be cached?
-
-                        if (fds[id] == -1) {
-                          throw std::runtime_error(
-                              "Could not connect to S3 via socket.");
-                        }
-                        io.send_async<true>(fds[id], req[id].data(),
-                                            req_size[id], id);
-                    }
-                } else { // mask not set, 'done sending' event
-                  // TODO sending this here assumes all responses come in after the write_request finishes. is this true?
-                  // io.recv_async<true>(fds[id], res[id].data(), resp_field_size, id | recv_mask_set);
-                  auto length = shared_http_header.copy(req[id].data(), shared_http_header.size());
-                  auto range = this->random_range_in(params.payload_size, max_obj_size).as_http_header_line();
-                  length += range.copy(req[id].data() + length, range.size());
-                  length += newline.copy(req[id].data() + length, newline.size());
-                  req[id][length + 1] = '\0';
-                  req_size[id] = length;
-                  // std::cout << "Sending " << req[id].data() << std::endl;
+                  } else {
+                    // memspace[params.payload_size] = '\0';
+                    // std::cout << "Received follow-up package for id " << id << " with size " << code << std::endl;
+                  }
+                  res_size[id] += code; // count up received bytes
+                } else if (res_size[id] < params.payload_size) { // code == 0 -> last package
+                  throw std::runtime_error("Got recv code 0 but not everything read from socket");
                 }
+                // received everything completely
+                if (res_size[id] >= params.payload_size) {
+                  ++received;
+                  res_size[id] = 0;
+                  io.close(fds[id]);
+                  if (received < params.sample_count) {
+                    fds[id] = io.connect(&addr_info).first; // TODO can sockets be reused?
+                    if (fds[id] == -1) {
+                      throw std::runtime_error("Could not connect to S3 via socket.");
+                    }
+                    io.send_async<true>(fds[id], req[id].data(), req_size[id], id);
+                  }
+                } else {
+                  io.recv_async<true>(fds[id], res[id].data() + res_size[id], resp_field_size - res_size[id], id | recv_mask_set);
+                }
+              } else { // mask not set, 'done sending' event
+                // TODO sending this here assumes all responses come in after
+                // the write_request finishes. is this true?
+                io.recv_async<true>(fds[id], res[id].data(), resp_field_size, id | recv_mask_set);
+                auto length = shared_http_header.copy(req[id].data(), shared_http_header.size());
+                auto range = this->random_range_in(params.payload_size, max_obj_size).as_http_header_line();
+                length += range.copy(req[id].data() + length, range.size());
+                length += newline.copy(req[id].data() + length, newline.size());
+                req[id][length + 1] = '\0';
+                req_size[id] = length;
+                // std::cout << "Sending " << req[id].data() << std::endl;
+              }
             }
           });
         }

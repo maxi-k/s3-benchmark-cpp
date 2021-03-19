@@ -100,13 +100,57 @@ namespace benchmark {
         }
     }
     // --------------------------------------------------------------------------------
+    namespace predicate {
+        // TODO implement more efficiently
+        inline bool find_next(char** haystack_ptr, const char* end, const char* needle, const char* needle_end) {
+            auto needle_size = needle_end - needle;
+            auto haystack = *haystack_ptr;
+            // TODO: optimize, int comparison / vector instructions?
+            while (haystack < end - needle_size + 0) {
+                const char* comp = needle;
+                while(comp != needle_end && haystack != end && (*haystack++) == (*comp++));
+                if (comp == needle_end && *(comp-1) == *(haystack-1)) {
+                    *haystack_ptr = haystack;
+                    return true;
+                }
+            }
+            *haystack_ptr = const_cast<char *>(end);
+            return false;
+        }
+    }  // namespace predicate
+    // --------------------------------------------------------------------------------
     namespace http {
+        // [offset in next buffer, n_matches]
+        inline std::pair<size_t, size_t> skim_http_data(char* buf, const size_t &buf_len, const size_t &start_pos = 0) {
+            static const char search_string[] = "Content-Length: ";
+            static const size_t search_string_len = sizeof(search_string) - 1;
+            if (start_pos >= buf_len) {
+                return {start_pos - buf_len, 0};
+            }
+            size_t matches = 0;
+            const char* end = buf + buf_len;
+            char* pos = buf + start_pos;
+            while (pos < end) {
+                bool found = predicate::find_next(&pos, end, search_string, search_string + search_string_len - 1);
+                if (!found) {
+                    return { 0, matches};
+                }
+                ++matches;
+                if (pos == end) {
+                    return {0, matches};
+                }
+                auto skip_bytes = strtol(pos, &pos, 10) + 6; // parsed content length + 6 for http \r\n's
+                pos += skip_bytes;
+            }
+            return {pos - end, matches};
+        }
+        // --------------------------------------------------------------------------------
         inline size_t curl_callback(char *body, size_t size_mult, size_t nmemb, void *userdata) {
             auto size = size_mult * nmemb;
             static_cast<std::string*>(userdata)->append(body, size);
             return size;
         }
-
+        // --------------------------------------------------------------------------------
         inline std::string curl_get(const std::string &url, size_t timeout_ms = 1000) {
             CURL *curl = curl_easy_init();
             if (!curl) {
