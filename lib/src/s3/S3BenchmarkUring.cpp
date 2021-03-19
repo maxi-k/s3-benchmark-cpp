@@ -20,23 +20,27 @@ namespace benchmark::s3 {
     // ----------------------------------------------------------------------------------------------------
     template<>
     RunResults S3Benchmark<URING>::do_run(RunParameters &params) {
-        auto max_obj_size = this->fetch_object_size();
         std::vector<latency_t> results(params.sample_count * params.thread_count);
         std::vector<std::thread> threads;
 
-        auto signed_uri =
-            client.GeneratePresignedUrl(config.bucket_name, config.object_name,
-                                        Aws::Http::HttpMethod::HTTP_GET);
         auto bucket_url = config.bucket_url();
         std::string newline = "\r\n";
         std::string header_end_needle = "\r\n\r\n";
         std::string protocol = "http://";
-        auto shared_http_header =
-            "GET " + signed_uri.substr(bucket_url.size() + protocol.size()) + " HTTP/1.1\r\n" +
-            "Host: " + bucket_url + "\r\n" +
-            "Range: ";
-        auto max_range_header = ByteRange{ max_obj_size, max_obj_size }.as_http_header_line();
-        auto max_header_alloc = shared_http_header.size() + max_range_header.size() + newline.size();
+
+        std::array<std::string, 8> shared_headers;
+        auto max_header_alloc = 0ul;
+        auto range = ByteRange{ 0, params.payload_size }.as_http_header_line();
+        for (unsigned i = 0; i != shared_headers.size(); ++i) {
+            auto object_name = config.object_name + "/" + std::to_string(i) + ".bin";
+            auto signed_uri = client.GeneratePresignedUrl(config.bucket_name, object_name, Aws::Http::HttpMethod::HTTP_GET);
+            auto shared_http_header =
+                "GET " + signed_uri.substr(bucket_url.size() + protocol.size()) + " HTTP/1.1\r\n"
+                + "Host: " + bucket_url + newline
+                + "Range: " + range + newline;
+            shared_headers[i] = shared_http_header;
+            max_header_alloc = std::max(shared_http_header.size(), max_header_alloc);
+        }
 
         // std::cout << "uri is " << signed_uri << std::endl <<
         //     "shared_header is " << shared_http_header << std::endl;
@@ -52,6 +56,7 @@ namespace benchmark::s3 {
             auto concurrent_requests = config.async_count;
 
             auto resp_field_size =  params.payload_size + 1024 * 128;
+
             std::vector<int> fds(concurrent_requests);
             std::vector<unsigned> res_header_size(concurrent_requests);
             std::vector<unsigned> res_size(concurrent_requests);
@@ -59,20 +64,17 @@ namespace benchmark::s3 {
             std::vector<std::vector<char>> req(concurrent_requests);
             std::vector<std::vector<char>> res(concurrent_requests);
             for (unsigned i = 0; i != concurrent_requests; ++i) {
+              auto& shared_http_header = shared_headers[i % shared_headers.size()];
               // request bookkeping
               req[i].reserve(max_header_alloc);
               auto length = shared_http_header.copy(req[i].data(), shared_http_header.size());
-              auto range = this->random_range_in(params.payload_size, max_obj_size).as_http_header_line();
-              length += range.copy(req[i].data() + length, range.size());
-              length += newline.copy(req[i].data() + length, newline.size());
-              req[i][length + 1] = '\0';
+              req[i][length] = '\0';
               req_size[i] = length;
               // response bookkeeping
               res[i].resize(resp_field_size);
               res_size[i] = 0;
               res_header_size[i] = 0;
             }
-
             std::string expected = "HTTP/1.1 206 Partial Content";
             auto received = 0u;
             auto in_queue = 0u;
@@ -104,13 +106,16 @@ namespace benchmark::s3 {
                           << ", not doing anything..." << std::endl;
                 continue;
               }
+              // TODO
+              // - close and open socket when reading 0 without data being done?
+              // - start next async request before processing previous one?
               if ((id | recv_mask) == -1u) { // mask set, receive event
                 id &= recv_mask;
                 // TODO
                 if (code > 0) { // received N bytes
                   auto &memspace = res[id];
                   if (res_size[id] == 0) { // first package -> should be http header
-                    auto &header_line_end = memspace[expected.size()];
+                    auto& header_line_end = memspace[expected.size()];
                     auto header_line_char = header_line_end;
                     header_line_end = '\0';
                     if (0 != ::strcmp(memspace.data(), expected.c_str())) { // but http header was not what was expected
@@ -120,7 +125,7 @@ namespace benchmark::s3 {
                       throw std::runtime_error("Unexpected format: could not find HTTP header start.");
                     } else {
                         // std::cout << "Received first package for id " << id << " with size " << code << std::endl;
-                        auto header_end = memspace.data();
+                        auto header_end = memspace.data() + expected.size();
                         auto found = predicate::find_next(&header_end, &(*memspace.end()), header_end_needle.data(), &(*header_end_needle.end()));
                         if (!found) {
                             throw std::runtime_error("Unexpected format: could not find HTTP header end.");
@@ -156,13 +161,10 @@ namespace benchmark::s3 {
                 // TODO sending this here assumes all responses come in after
                 // the write_request finishes. is this true?
                 io.recv_async<true>(fds[id], res[id].data(), resp_field_size, id | recv_mask_set);
+                auto& shared_http_header = shared_headers[id % shared_headers.size()];
                 auto length = shared_http_header.copy(req[id].data(), shared_http_header.size());
-                auto range = this->random_range_in(params.payload_size, max_obj_size).as_http_header_line();
-                length += range.copy(req[id].data() + length, range.size());
-                length += newline.copy(req[id].data() + length, newline.size());
                 req[id][length + 1] = '\0';
                 req_size[id] = length;
-                // std::cout << "Sending " << req[id].data() << std::endl;
               }
             }
             for (auto& fd : fds) {

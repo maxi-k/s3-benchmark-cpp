@@ -274,19 +274,23 @@ namespace benchmark {
               return -1;
           }
           int flags = 1;
-          if (::setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &flags,
-          sizeof(flags))) {
+          if (::setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &flags, sizeof(flags))) {
               auto err = errno;
               std::cerr << "Error " << err << " using SO_KEEPALIVE" << std::endl;
               throw std::runtime_error("Error using setsocketopt() for SO_KEEPALIVE");
           }
           flags = 120;
-          if (::setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &flags, sizeof(flags)))
-          {
+          if (::setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &flags, sizeof(flags))) {
               auto err = errno;
               std::cerr << "Error " << err << " using TCP_KEEPIDLE" << std::endl;
               throw std::runtime_error("Error using setsocketopt() for SO_KEEPIDLE");
           }
+          // flags = 10;
+          // if(::setsockopt(fd, SOL_TCP, TCP_INIT_CWND, &10, sizeof(flags))) {
+          //     auto err = errno;
+          //     std::cerr << "Error " << err << " using TCP_INIT_CWND" << std::endl;
+          //     throw std::runtime_error("Error using setsocketopt() for SO_KEEPIDLE");
+          // }
           return fd;
         }
         // ------------------------------------------------------------------------------------------------
