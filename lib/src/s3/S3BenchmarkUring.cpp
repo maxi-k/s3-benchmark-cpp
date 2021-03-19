@@ -2,8 +2,6 @@
 // Created by Maximilian Kuschewski on 2021-03-18
 //
 #include "benchmark/s3/S3Benchmark.hpp"
-#include "benchmark/IO.hpp"
-
 #include <sys/stat.h>
 #include <fstream>
 #include <iostream>
@@ -13,7 +11,9 @@
 #include <vector>
 #include <algorithm>
 #include <thread>
-// #include <liburing.h>
+
+#include "benchmark/IO.hpp"
+#include "benchmark/Util.hpp"
 
 
 namespace benchmark::s3 {
@@ -29,6 +29,7 @@ namespace benchmark::s3 {
                                         Aws::Http::HttpMethod::HTTP_GET);
         auto bucket_url = config.bucket_url();
         std::string newline = "\r\n";
+        std::string header_end_needle = "\r\n\r\n";
         std::string protocol = "http://";
         auto shared_http_header =
             "GET " + signed_uri.substr(bucket_url.size() + protocol.size()) + " HTTP/1.1\r\n" +
@@ -46,14 +47,15 @@ namespace benchmark::s3 {
 
         for (unsigned t_id = 0; t_id != params.thread_count; ++t_id) {
           threads.emplace_back([&, t_id]() {
-            constexpr unsigned concurrent_requests = 16;
             constexpr unsigned recv_mask_set = 1u << ((sizeof(unsigned) << 3u) - 1);
             constexpr unsigned recv_mask = -1u ^ recv_mask_set;
+            auto concurrent_requests = config.async_count;
 
-            auto resp_field_size =  params.payload_size + 1024 * 16;
-            std::array<int, concurrent_requests> fds;
-            std::array<unsigned, concurrent_requests> res_size;
-            std::array<unsigned, concurrent_requests> req_size;
+            auto resp_field_size =  params.payload_size + 1024 * 128;
+            std::vector<int> fds(concurrent_requests);
+            std::vector<unsigned> res_header_size(concurrent_requests);
+            std::vector<unsigned> res_size(concurrent_requests);
+            std::vector<unsigned> req_size(concurrent_requests);
             std::vector<std::vector<char>> req(concurrent_requests);
             std::vector<std::vector<char>> res(concurrent_requests);
             for (unsigned i = 0; i != concurrent_requests; ++i) {
@@ -68,6 +70,7 @@ namespace benchmark::s3 {
               // response bookkeeping
               res[i].resize(resp_field_size);
               res_size[i] = 0;
+              res_header_size[i] = 0;
             }
 
             std::string expected = "HTTP/1.1 206 Partial Content";
@@ -114,28 +117,36 @@ namespace benchmark::s3 {
                       memspace[expected.size()] = header_line_char;
                       memspace[params.payload_size] = '\0';
                       std::cerr << "for id " << id << ": got " << memspace.data() << std::endl;
-                      throw std::runtime_error("Unexpected format");
+                      throw std::runtime_error("Unexpected format: could not find HTTP header start.");
                     } else {
                         // std::cout << "Received first package for id " << id << " with size " << code << std::endl;
+                        auto header_end = memspace.data();
+                        auto found = predicate::find_next(&header_end, &(*memspace.end()), header_end_needle.data(), &(*header_end_needle.end()));
+                        if (!found) {
+                            throw std::runtime_error("Unexpected format: could not find HTTP header end.");
+                        }
+                        auto header_len = header_end - memspace.data();
+                        res_header_size[id] = header_len;
+                        // std::cout << "Found header length " << header_len << std::endl;
                     }
                   } else {
                     // memspace[params.payload_size] = '\0';
                     // std::cout << "Received follow-up package for id " << id << " with size " << code << std::endl;
                   }
                   res_size[id] += code; // count up received bytes
-                } else if (res_size[id] < params.payload_size) { // code == 0 -> last package
+                } else if (res_size[id] < params.payload_size + res_header_size[id]) { // code == 0 -> last package
                   throw std::runtime_error("Got recv code 0 but not everything read from socket");
                 }
                 // received everything completely
-                if (res_size[id] >= params.payload_size) {
+                if (res_size[id] >= params.payload_size + res_header_size[id]) {
                   ++received;
                   res_size[id] = 0;
-                  io.close(fds[id]);
+                  // io.close(fds[id]);
                   if (received < params.sample_count) {
-                    fds[id] = io.connect(&addr_info).first; // TODO can sockets be reused?
-                    if (fds[id] == -1) {
-                      throw std::runtime_error("Could not connect to S3 via socket.");
-                    }
+                    // fds[id] = io.connect(&addr_info).first; // TODO can sockets be reused?
+                    // if (fds[id] == -1) {
+                    //   throw std::runtime_error("Could not connect to S3 via socket.");
+                    // }
                     io.send_async<true>(fds[id], req[id].data(), req_size[id], id);
                   }
                 } else {
@@ -153,6 +164,9 @@ namespace benchmark::s3 {
                 req_size[id] = length;
                 // std::cout << "Sending " << req[id].data() << std::endl;
               }
+            }
+            for (auto& fd : fds) {
+                io.close(fd);
             }
           });
         }

@@ -14,6 +14,7 @@
 // network stack
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <netdb.h>  // addrinfo -> lookup
 // #include <arpa/inet.h>
 
@@ -264,22 +265,28 @@ namespace benchmark {
     private:
         static inline int make_socket(int family = AF_INET, int type = SOCK_STREAM, int protocol = 0) {
           int fd = ::socket(AF_INET, SOCK_STREAM, 0);
-          // int flags = 1;
-          // if (::setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &flags,
-          // sizeof(flags))) {
-          //     auto err = errno;
-          //     std::cerr << "Error " << err << " using SO_KEEPALIVE" <<
-          //     std::endl; throw std::runtime_error("Error using setsocketopt()
-          //     for SO_KEEPALIVE");
-          // }
-          // flags = 120;
-          // if (::setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &flags, sizeof(flags)))
-          // {
-          //     auto err = errno;
-          //     std::cerr << "Error " << err << " using TCP_KEEPIDLE" <<
-          //     std::endl; throw std::runtime_error("Error using setsocketopt()
-          //     for SO_KEEPIDLE");
-          // }
+          if (fd == -1) {
+              auto err = errno;
+              std::cerr << "Error " << err << " opening socket" << std::endl;
+              if (err == 24) {
+                  std::cerr << "seems to be b/c of too many open files try ulimit -n" << std::endl;
+              }
+              return -1;
+          }
+          int flags = 1;
+          if (::setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &flags,
+          sizeof(flags))) {
+              auto err = errno;
+              std::cerr << "Error " << err << " using SO_KEEPALIVE" << std::endl;
+              throw std::runtime_error("Error using setsocketopt() for SO_KEEPALIVE");
+          }
+          flags = 120;
+          if (::setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &flags, sizeof(flags)))
+          {
+              auto err = errno;
+              std::cerr << "Error " << err << " using TCP_KEEPIDLE" << std::endl;
+              throw std::runtime_error("Error using setsocketopt() for SO_KEEPIDLE");
+          }
           return fd;
         }
         // ------------------------------------------------------------------------------------------------

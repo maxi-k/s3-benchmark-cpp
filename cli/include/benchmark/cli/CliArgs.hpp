@@ -67,6 +67,8 @@ namespace benchmark::cli {
                       "The number of samples to collect for each test of a single object size per thread.");
         DEFINE_uint64(samples_cap, 7200,
                       "The maximum number of samples to collect for each test of a single object size.");
+        DEFINE_double(async_count, 16, // 2
+                      "The number of asynchronous tasks per thread (if applicable).");
         DEFINE_string(bucket_name, s3::S3Config::DEFAULT_BUCKET_NAME,
                       "The name of the bucket where the test object is located");
         DEFINE_string(object_name, s3::S3Config::DEFAULT_OBJECT_NAME,
@@ -119,6 +121,7 @@ namespace benchmark::cli {
                               flags::FLAGS_payloads_reverse,
                               flags::FLAGS_samples,
                               flags::FLAGS_samples_cap,
+                              flags::FLAGS_async_count,
                               flags::FLAGS_bucket_name,
                               flags::FLAGS_object_name,
                               flags::FLAGS_region,

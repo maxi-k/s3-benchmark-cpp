@@ -34,6 +34,7 @@ namespace benchmark {
         bool payloads_reverse;
         size_t samples;
         size_t samples_cap;
+        size_t async_count;
         std::string bucket_name;
         std::string object_name;
         std::string region;
